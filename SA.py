@@ -178,6 +178,13 @@ PLOTLY_THEME = dict(
     margin=dict(l=50, r=30, t=50, b=50),
 )
 
+# Untuk make_subplots — tidak include xaxis/yaxis/colorway/margin
+SUBPLOT_THEME = dict(
+    plot_bgcolor='#131825',
+    paper_bgcolor='#0A0C14',
+    font=dict(color='#C5CBE0', family='Inter'),
+)
+
 def apply_theme(fig, title=""):
     fig.update_layout(**PLOTLY_THEME, title=dict(text=title, font=dict(size=13, color='#C5CBE0'), x=0.01))
     return fig
@@ -495,7 +502,7 @@ with tab1:
             fig_hist.add_vline(x=df[col].median(), line_dash="dot", line_color="#FFA726",
                                line_width=1.5, row=1, col=i+1)
         
-        fig_hist.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_hist.update_layout(**SUBPLOT_THEME,
             height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
         fig_hist.update_annotations(font_size=11, font_color='#A5B4FC')
         for i in range(1, 4):
@@ -516,7 +523,7 @@ with tab1:
             textinfo='label+percent', textfont_size=11,
             hovertemplate='<b>%{label}</b><br>Jumlah: %{value}<br>%{percent}<extra></extra>'
         ))
-        fig_pie.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_pie.update_layout(**SUBPLOT_THEME,
             height=240, margin=dict(l=10,r=10,t=20,b=10), showlegend=True,
             legend=dict(orientation='h', y=-0.05, x=0.5, xanchor='center',
                         font=dict(size=11, color='#C5CBE0')))
@@ -544,7 +551,7 @@ with tab1:
                               f'<b>{cy.split("(")[0].strip()}</b>: %{{y}}<br>'
                               f'Gender: %{{text}}<extra></extra>'
             ))
-            fig_sc.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            fig_sc.update_layout(**SUBPLOT_THEME,
                 height=240, margin=dict(l=45,r=15,t=35,b=35),
                 title=dict(text=f'{cx.split("(")[0].strip()} vs {cy.split("(")[0].strip()}',
                            font=dict(size=11, color='#C5CBE0'), x=0.01),
@@ -566,7 +573,7 @@ with tab1:
         texttemplate='%{text}', textfont_size=14,
         hovertemplate='%{y} × %{x}: %{z:.4f}<extra></extra>'
     ))
-    fig_corr.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+    fig_corr.update_layout(**SUBPLOT_THEME,
         height=280, margin=dict(l=60,r=60,t=30,b=30), width=400)
     c_corr, c_stat = st.columns([1, 2])
     with c_corr:
@@ -629,7 +636,7 @@ with tab2:
             text=pca3.components_.round(3), texttemplate='%{text}', textfont_size=12,
             hovertemplate='<b>%{y}</b> × <b>%{x}</b>: %{z:.4f}<extra></extra>'
         ))
-        fig_heat.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_heat.update_layout(**SUBPLOT_THEME,
             height=320, title='Heatmap Loading — Kontribusi Fitur per PC',
             xaxis=dict(side='bottom'), margin=dict(l=60,r=60,t=50,b=40))
         st.plotly_chart(fig_heat, use_container_width=True, config={'displayModeBar': False})
@@ -874,7 +881,7 @@ with tab4:
         ), row=1, col=i+1)
         fig_k.add_vline(x=kl[opt_i], line_dash="dot", line_color='rgba(255,255,255,0.25)',
                          line_width=1.2, row=1, col=i+1)
-    fig_k.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+    fig_k.update_layout(**SUBPLOT_THEME,
         height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
     fig_k.update_annotations(font_size=11, font_color='#A5B4FC')
     for i in range(1, 5):
@@ -983,7 +990,7 @@ with tab4:
                     meanline_visible=True, showlegend=(i==0),
                     hovertemplate=f'Cluster {c}<br>{col}: %{{y:.1f}}<extra></extra>'
                 ), row=1, col=i+1)
-        fig_viol.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_viol.update_layout(**SUBPLOT_THEME,
             height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
         fig_viol.update_annotations(font_size=10, font_color='#A5B4FC')
         for i in range(1, 4):
@@ -1189,7 +1196,7 @@ with tab5:
             texttemplate='%{text}', textfont_size=12,
             hovertemplate='<b>%{y}, %{x}</b><br>WCSS: %{z:.4f}<extra></extra>'
         ))
-        fig_hw.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_hw.update_layout(**SUBPLOT_THEME,
             height=260, title=f'Heatmap WCSS Final: α × σ (baseline={WCSS_BASE:.3f})',
             margin=dict(l=60,r=60,t=50,b=40),
             xaxis=dict(side='bottom'), yaxis=dict(side='left'))
@@ -1203,7 +1210,7 @@ with tab5:
             texttemplate='%{text}', textfont_size=12,
             hovertemplate='<b>%{y}, %{x}</b><br>Silhouette: %{z:.4f}<extra></extra>'
         ))
-        fig_hs.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        fig_hs.update_layout(**SUBPLOT_THEME,
             height=260, title='Heatmap Silhouette: α × σ (↑ terbaik)',
             margin=dict(l=60,r=60,t=50,b=40),
             xaxis=dict(side='bottom'))
