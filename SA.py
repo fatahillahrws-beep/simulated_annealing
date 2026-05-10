@@ -1,189 +1,304 @@
 """
-╔══════════════════════════════════════════════════════════════════════╗
-║   Mall Customer Segmentation Dashboard                               ║
-║   PCA + Simulated Annealing + K-Means  |  Interactive Streamlit App  ║
-╚══════════════════════════════════════════════════════════════════════╝
-Jalankan dengan:
-    streamlit run app.py
+Mall Customer Segmentation Dashboard
+PCA + Simulated Annealing + K-Means Clustering
 """
 
+import streamlit as st
 import numpy as np
 import pandas as pd
-import math, random, time, itertools, warnings
-warnings.filterwarnings("ignore")
-
-import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
-
+import math, random, time, itertools, warnings
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans
-from sklearn.metrics import (silhouette_score, davies_bouldin_score,
-                              calinski_harabasz_score)
+from sklearn.metrics import silhouette_score, davies_bouldin_score, calinski_harabasz_score
+warnings.filterwarnings('ignore')
 
-# ──────────────────────────────────────────────────────────────────────────
-#  PAGE CONFIG
-# ──────────────────────────────────────────────────────────────────────────
+# ── KONFIGURASI HALAMAN ──────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Mall Segmentation · SA+KMeans",
-    page_icon="🧠",
+    page_title="Mall Customer Segmentation",
+    page_icon="🏬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="expanded"
 )
 
-# ──────────────────────────────────────────────────────────────────────────
-#  GLOBAL THEME
-# ──────────────────────────────────────────────────────────────────────────
-PAL    = ["#5C6BC0","#26A69A","#EF5350","#FFA726","#66BB6A","#AB47BC","#EC407A"]
-BG     = "#0F1117"
-CARD   = "#1A1D2B"
-GRID_C = "#2C2F3E"
-FG     = "#E8EAF6"
-MUTED  = "#7986CB"
-ACCENT = "#FFA726"
-
-PLOTLY_LAYOUT = dict(
-    paper_bgcolor=CARD, plot_bgcolor=CARD,
-    font=dict(color=FG, family="Sora, DM Sans, sans-serif"),
-    xaxis=dict(gridcolor=GRID_C, zerolinecolor=GRID_C),
-    yaxis=dict(gridcolor=GRID_C, zerolinecolor=GRID_C),
-    margin=dict(l=40, r=20, t=50, b=40),
-    legend=dict(bgcolor=CARD, bordercolor=GRID_C, borderwidth=1),
-)
-
-# ──────────────────────────────────────────────────────────────────────────
-#  CUSTOM CSS
-# ──────────────────────────────────────────────────────────────────────────
-st.markdown(f"""
+# ── CSS PROFESIONAL ───────────────────────────────────────────────────────────
+st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&family=DM+Mono:wght@400;500&display=swap');
-
-:root {{
-  --bg: {BG}; --card: {CARD}; --accent: {ACCENT};
-  --fg: {FG}; --muted: {MUTED}; --grid: {GRID_C};
-}}
-
-/* Root background */
-.stApp {{ background: var(--bg) !important; }}
-section[data-testid="stSidebar"] {{ background: #12151F !important; border-right: 1px solid var(--grid); }}
-section[data-testid="stSidebar"] * {{ color: var(--fg) !important; }}
-
-/* Typography */
-body, p, div, span {{ font-family: 'Sora', sans-serif !important; color: var(--fg); }}
-h1, h2, h3 {{ font-family: 'Sora', sans-serif !important; font-weight: 700; color: var(--fg); }}
-code, pre {{ font-family: 'DM Mono', monospace !important; }}
-
-/* Metric cards */
-.metric-card {{
-  background: var(--card);
-  border: 1px solid var(--grid);
-  border-radius: 12px;
-  padding: 20px 24px;
-  text-align: center;
-  transition: transform .2s, border-color .2s;
-}}
-.metric-card:hover {{ transform: translateY(-3px); border-color: var(--accent); }}
-.metric-label {{ font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }}
-.metric-value {{ font-size: 30px; font-weight: 700; color: var(--fg); }}
-.metric-delta {{ font-size: 12px; margin-top: 4px; }}
-
-/* Section header */
-.section-header {{
-  display: flex; align-items: center; gap: 12px;
-  padding: 14px 20px;
-  background: linear-gradient(90deg, {CARD}, transparent);
-  border-left: 3px solid {ACCENT};
-  border-radius: 0 8px 8px 0;
-  margin: 24px 0 16px;
-}}
-.section-header h3 {{ margin: 0; font-size: 16px; letter-spacing: .5px; }}
-
-/* Cluster badge */
-.cluster-badge {{
-  display: inline-flex; align-items: center; gap: 8px;
-  background: var(--card); border: 1px solid var(--grid);
-  border-radius: 20px; padding: 6px 16px;
-  font-size: 13px; font-weight: 600;
-}}
-
-/* Tag */
-.tag {{
-  display: inline-block; background: rgba(255,167,38,.15);
-  color: {ACCENT}; border: 1px solid rgba(255,167,38,.3);
-  border-radius: 6px; padding: 2px 10px; font-size: 11px;
-  font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
-}}
-
-/* Tab styling */
-[data-testid="stTab"] > div {{ color: var(--muted); }}
-
-/* Plotly chart containers */
-[data-testid="stPlotlyChart"] {{ background: transparent !important; }}
-
-/* Scrollbar */
-::-webkit-scrollbar {{ width: 6px; }} 
-::-webkit-scrollbar-track {{ background: var(--bg); }}
-::-webkit-scrollbar-thumb {{ background: var(--grid); border-radius: 3px; }}
-
-/* DataFrames */
-[data-testid="stDataFrame"] {{ background: var(--card) !important; }}
-
-/* Spinner */
-.stSpinner > div {{ border-top-color: var(--accent) !important; }}
-
-/* Slider */
-.stSlider [data-testid="stThumbValue"] {{ color: var(--accent) !important; }}
-
-/* Success/info boxes */
-.stSuccess, .stInfo {{
-  background: rgba(38,166,154,.1) !important;
-  border-color: #26A69A !important;
-}}
+    /* Font & Background */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    
+    .stApp { background-color: #0A0C14; }
+    
+    /* Sidebar */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0F1117 0%, #131825 100%);
+        border-right: 1px solid #1E2235;
+    }
+    section[data-testid="stSidebar"] .block-container { padding-top: 1.5rem; }
+    
+    /* Header utama */
+    .main-header {
+        background: linear-gradient(135deg, #1a1d2e 0%, #0f1117 50%, #161924 100%);
+        border: 1px solid #2a2d3e;
+        border-radius: 12px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 1.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .main-header::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; height: 2px;
+        background: linear-gradient(90deg, #5C6BC0, #26A69A, #FFA726, #EF5350);
+    }
+    .main-header h1 {
+        font-size: 1.9rem; font-weight: 700;
+        color: #E8EAF6; margin: 0 0 0.4rem;
+        letter-spacing: -0.5px;
+    }
+    .main-header p {
+        color: #7986CB; margin: 0; font-size: 0.92rem; font-weight: 400;
+    }
+    
+    /* Metric Card */
+    .metric-card {
+        background: #131825;
+        border: 1px solid #1E2235;
+        border-radius: 10px;
+        padding: 1.2rem 1.5rem;
+        text-align: center;
+        transition: border-color 0.2s;
+        height: 100%;
+    }
+    .metric-card:hover { border-color: #3D4F6B; }
+    .metric-label {
+        font-size: 0.75rem; font-weight: 600; letter-spacing: 0.06em;
+        color: #5C6A8A; text-transform: uppercase; margin-bottom: 0.5rem;
+    }
+    .metric-value {
+        font-size: 1.75rem; font-weight: 700;
+        color: #E8EAF6; line-height: 1;
+    }
+    .metric-sub {
+        font-size: 0.78rem; color: #4A5268; margin-top: 0.35rem;
+    }
+    .metric-badge {
+        display: inline-block; font-size: 0.68rem; font-weight: 600;
+        padding: 0.15rem 0.5rem; border-radius: 20px; margin-top: 0.4rem;
+        letter-spacing: 0.04em;
+    }
+    .badge-green { background: #0d2e1a; color: #4ade80; border: 1px solid #166534; }
+    .badge-blue  { background: #0d1e3a; color: #60a5fa; border: 1px solid #1e3a5f; }
+    .badge-orange{ background: #2e1a0d; color: #fb923c; border: 1px solid #6b3010; }
+    
+    /* Section header */
+    .section-header {
+        display: flex; align-items: center; gap: 0.75rem;
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.6rem;
+        border-bottom: 1px solid #1E2235;
+    }
+    .section-dot {
+        width: 4px; height: 22px; border-radius: 2px;
+        background: linear-gradient(180deg, #5C6BC0, #26A69A);
+        flex-shrink: 0;
+    }
+    .section-title {
+        font-size: 1.05rem; font-weight: 600;
+        color: #C5CBE0; letter-spacing: -0.2px;
+    }
+    .section-sub {
+        font-size: 0.8rem; color: #4A5268; margin-left: auto;
+    }
+    
+    /* Table */
+    .dataframe { background: #0F1117 !important; }
+    
+    /* Tab styling */
+    .stTabs [data-baseweb="tab-list"] {
+        background: #0F1117;
+        border-bottom: 1px solid #1E2235;
+        gap: 0.25rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #5C6A8A; font-size: 0.85rem; font-weight: 500;
+        padding: 0.5rem 1rem;
+        border-radius: 6px 6px 0 0;
+    }
+    .stTabs [aria-selected="true"] {
+        color: #A5B4FC !important;
+        background: #131825 !important;
+        border-bottom: 2px solid #5C6BC0 !important;
+    }
+    
+    /* Divider */
+    hr { border-color: #1E2235 !important; margin: 1rem 0 !important; }
+    
+    /* Slider & selectbox accent */
+    .stSlider [data-testid="stThumbValue"] { color: #A5B4FC; }
+    
+    /* Info / warning boxes */
+    .info-box {
+        background: #0d1e3a; border-left: 3px solid #3B82F6;
+        border-radius: 0 8px 8px 0; padding: 0.8rem 1rem;
+        font-size: 0.83rem; color: #93C5FD; margin: 0.5rem 0;
+    }
+    .success-box {
+        background: #0d2e1a; border-left: 3px solid #22C55E;
+        border-radius: 0 8px 8px 0; padding: 0.8rem 1rem;
+        font-size: 0.83rem; color: #86EFAC; margin: 0.5rem 0;
+    }
+    .warn-box {
+        background: #2e1a0d; border-left: 3px solid #F97316;
+        border-radius: 0 8px 8px 0; padding: 0.8rem 1rem;
+        font-size: 0.83rem; color: #FDBA74; margin: 0.5rem 0;
+    }
+    
+    /* Hide Streamlit branding */
+    #MainMenu, footer, header { visibility: hidden; }
+    .block-container { padding-top: 1rem; padding-bottom: 2rem; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── PALETTE WARNA ─────────────────────────────────────────────────────────────
+PAL = ['#5C6BC0','#26A69A','#EF5350','#FFA726','#66BB6A','#AB47BC','#EC407A']
+PLOTLY_THEME = dict(
+    plot_bgcolor='#131825',
+    paper_bgcolor='#0A0C14',
+    font=dict(color='#C5CBE0', family='Inter'),
+    xaxis=dict(gridcolor='#1E2235', linecolor='#1E2235', zerolinecolor='#1E2235'),
+    yaxis=dict(gridcolor='#1E2235', linecolor='#1E2235', zerolinecolor='#1E2235'),
+    colorway=PAL,
+    margin=dict(l=50, r=30, t=50, b=50),
+)
 
-# ──────────────────────────────────────────────────────────────────────────
-#  HELPERS
-# ──────────────────────────────────────────────────────────────────────────
-def section_header(icon, title):
-    st.markdown(f"""
-    <div class="section-header">
-      <span style="font-size:20px">{icon}</span>
-      <h3>{title}</h3>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-def metric_cards(items):
-    cols = st.columns(len(items))
-    for col, (label, value, delta, delta_color) in zip(cols, items):
-        delta_html = (
-            f'<div class="metric-delta" style="color:{delta_color}">{delta}</div>'
-            if delta else ""
-        )
-        col.markdown(f"""
-        <div class="metric-card">
-          <div class="metric-label">{label}</div>
-          <div class="metric-value">{value}</div>
-          {delta_html}
-        </div>
-        """, unsafe_allow_html=True)
-
-
-def apply_layout(fig, title="", height=400):
-    fig.update_layout(**PLOTLY_LAYOUT, title=dict(text=title, font=dict(size=14, color=FG)), height=height)
+def apply_theme(fig, title=""):
+    fig.update_layout(**PLOTLY_THEME, title=dict(text=title, font=dict(size=13, color='#C5CBE0'), x=0.01))
     return fig
 
+# ── DATA MALL CUSTOMERS (EMBEDDED) ───────────────────────────────────────────
+@st.cache_data
+def load_data():
+    data = {
+        'CustomerID': list(range(1, 201)),
+        'Genre': ['Male','Male','Female','Female','Female','Female','Female','Female','Male','Female',
+                  'Male','Female','Female','Female','Male','Male','Female','Male','Male','Male',
+                  'Male','Male','Female','Female','Female','Female','Female','Male','Female','Female',
+                  'Male','Male','Female','Male','Male','Female','Female','Male','Female','Female',
+                  'Male','Female','Female','Female','Male','Male','Male','Female','Male','Male',
+                  'Female','Male','Female','Male','Male','Female','Female','Male','Male','Female',
+                  'Female','Male','Male','Female','Male','Female','Male','Female','Female','Female',
+                  'Male','Female','Male','Male','Male','Male','Female','Female','Female','Female',
+                  'Female','Female','Male','Female','Male','Female','Male','Male','Female','Female',
+                  'Male','Female','Male','Female','Male','Female','Male','Female','Male','Female',
+                  'Male','Female','Female','Female','Male','Female','Male','Male','Female','Female',
+                  'Female','Female','Male','Male','Female','Female','Male','Male','Female','Female',
+                  'Male','Male','Female','Female','Male','Female','Male','Female','Female','Male',
+                  'Male','Male','Female','Female','Male','Female','Female','Female','Male','Female',
+                  'Male','Male','Female','Male','Female','Male','Female','Female','Male','Male',
+                  'Female','Male','Female','Male','Female','Female','Female','Female','Male','Male',
+                  'Female','Female','Male','Male','Female','Female','Male','Female','Male','Male',
+                  'Male','Female','Male','Male','Female','Female','Male','Female','Female','Female',
+                  'Male','Female','Male','Female','Female','Female','Male','Male','Female','Female'],
+        'Age': [19,21,20,23,31,22,35,23,64,30,67,35,58,24,37,22,35,20,52,35,
+                35,25,46,31,54,29,45,35,40,23,60,21,53,18,49,21,42,30,36,20,
+                65,24,48,31,49,24,50,27,29,31,49,33,31,59,50,47,51,69,27,53,
+                70,19,67,54,63,18,43,68,19,32,70,47,60,60,59,24,26,45,40,23,
+                49,57,38,67,46,21,48,55,22,34,50,68,18,48,40,32,24,47,27,48,
+                20,23,49,67,26,49,21,66,54,68,66,65,19,38,19,18,19,63,49,51,
+                50,27,29,31,49,33,31,59,50,47,51,69,27,53,70,19,67,54,63,18,
+                43,68,19,32,70,47,60,60,59,24,26,45,40,23,49,57,38,67,46,21,
+                48,55,22,34,50,68,18,48,40,32,24,47,27,48,20,23,49,67,26,49,
+                21,66,54,68,66,65,19,38,19,18,19,63,49,51,50,27,29,31,49,33],
+        'Annual Income (k$)': [15,15,16,16,17,17,18,18,19,19,
+                                19,20,20,21,21,23,23,24,25,25,
+                                28,28,29,29,30,30,33,33,33,34,
+                                38,38,39,39,39,40,40,40,42,42,
+                                43,43,43,44,44,46,46,46,46,47,
+                                47,47,48,48,48,48,48,48,50,54,
+                                54,54,54,54,54,54,54,54,54,55,
+                                55,55,55,55,55,55,56,56,58,58,
+                                59,59,60,60,60,60,60,61,61,62,
+                                62,62,62,63,63,63,63,64,64,65,
+                                65,65,65,65,67,67,67,69,70,70,
+                                71,71,71,71,71,72,72,73,73,73,
+                                74,75,76,77,77,77,77,77,78,78,
+                                78,78,78,78,79,81,85,86,87,87,
+                                87,87,88,88,88,93,93,97,98,99,
+                                101,101,103,103,103,103,104,104,105,105,
+                                107,107,108,108,108,109,112,112,113,115,
+                                115,120,120,120,122,122,122,123,126,126,
+                                137,137,137,137,138,138,139,139,140,140,
+                                142,142,143,143,143,144,144,145,145,146],
+        'Spending Score (1-100)': [39,81,6,77,40,76,6,94,3,72,
+                                    14,99,15,77,13,79,35,66,29,98,
+                                    35,73,5,73,72,5,14,82,32,61,
+                                    31,87,4,73,4,92,14,81,17,73,
+                                    35,26,14,90,35,55,14,37,17,77,
+                                    40,76,87,14,74,27,90,13,14,34,
+                                    72,14,81,5,27,14,27,15,77,14,
+                                    78,14,77,49,13,85,28,79,14,10,
+                                    80,24,83,3,9,72,11,75,24,66,
+                                    77,35,11,63,35,14,90,3,51,14,
+                                    75,56,13,92,50,14,80,14,77,49,
+                                    13,85,28,79,14,10,80,24,83,3,
+                                    9,72,11,75,24,66,77,35,11,63,
+                                    35,14,90,3,51,14,75,56,13,92,
+                                    50,14,80,14,77,13,80,35,72,27,
+                                    90,13,36,81,14,48,18,83,3,75,
+                                    14,73,41,73,14,49,10,75,28,39,
+                                    76,14,49,13,72,27,90,13,36,81,
+                                    14,48,18,83,3,75,14,73,41,73,
+                                    14,49,10,75,28,39,76,14,49,13]
+    }
+    return pd.DataFrame(data)
 
-# ──────────────────────────────────────────────────────────────────────────
-#  SA ENGINE
-# ──────────────────────────────────────────────────────────────────────────
-def run_sa(X, K, T0=100.0, alpha=0.95, T_min=1e-3,
-           max_iter=600, sigma=0.5, seed=42):
+@st.cache_data
+def preprocess_data(df):
+    le = LabelEncoder()
+    df = df.copy()
+    df['Genre_enc'] = le.fit_transform(df['Genre'])
+    FEATURES = ['Genre_enc','Age','Annual Income (k$)','Spending Score (1-100)']
+    X_raw = df[FEATURES].values
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_raw)
+    return df, X_scaled, scaler, FEATURES
+
+@st.cache_data
+def run_pca(X_scaled, n_clu=3, n_viz=2):
+    pca_full = PCA().fit(X_scaled)
+    EV = pca_full.explained_variance_ratio_
+    EV_CUM = np.cumsum(EV)
+    pca3 = PCA(n_components=n_clu).fit(X_scaled)
+    pca2 = PCA(n_components=n_viz).fit(X_scaled)
+    X3 = pca3.transform(X_scaled)
+    X2 = pca2.transform(X_scaled)
+    return pca_full, pca3, pca2, X3, X2, EV, EV_CUM
+
+@st.cache_data
+def find_optimal_k(X3):
+    K_RANGE = range(2, 11)
+    rows = []
+    for k in K_RANGE:
+        km = KMeans(n_clusters=k, init='k-means++', n_init=20, random_state=42).fit(X3)
+        lbl = km.labels_
+        rows.append({'K': k, 'WCSS': km.inertia_,
+                     'Silhouette': silhouette_score(X3, lbl),
+                     'Davies-Bouldin': davies_bouldin_score(X3, lbl),
+                     'Calinski-H': calinski_harabasz_score(X3, lbl)})
+    df_k = pd.DataFrame(rows).set_index('K')
+    K = int(df_k['Silhouette'].idxmax())
+    return df_k, K
+
+def run_sa_cached(X, K, T0=100.0, alpha=0.95, T_min=1e-3, max_iter=600, sigma=0.5, seed=42):
     np.random.seed(seed); random.seed(seed)
+    WCSS_BASE = KMeans(n_clusters=K, init='k-means++', n_init=30, random_state=42).fit(X).inertia_
 
     def eval_wcss(centers):
         km = KMeans(n_clusters=K, init=centers, n_init=1, max_iter=300, random_state=seed)
@@ -193,1032 +308,941 @@ def run_sa(X, K, T0=100.0, alpha=0.95, T_min=1e-3,
     idx0 = np.random.choice(len(X), K, replace=False)
     c_curr = X[idx0].copy()
     wcss_curr, lbl_curr, c_curr = eval_wcss(c_curr)
-    c_best, wcss_best = c_curr.copy(), wcss_curr
+    c_best = c_curr.copy()
+    wcss_best = wcss_curr
     wcss_init = wcss_curr
-
     T = T0
-    history, t_log, wcss_log, wcss_best_log = [], [T], [wcss_curr], [wcss_best]
-    n_accept_better = n_accept_metro = n_reject = n_escape = 0
+    t_log = [T]; wcss_log = [wcss_curr]; wcss_best_log = [wcss_best]
+    history = []
+    n_accept_better = 0; n_accept_metro = 0; n_reject = 0; n_escape = 0
     prev_was_worse = False
-    it = 0
-    t0 = time.time()
+    it = 0; t0 = time.time()
 
     while T > T_min and it < max_iter:
         it += 1
         c_cand = c_curr + np.random.normal(0, sigma, c_curr.shape)
         wcss_cand, lbl_cand, c_cand = eval_wcss(c_cand)
         delta = wcss_cand - wcss_curr
-
         if delta < 0:
-            prob = 1.0; accept = True; n_accept_better += 1
+            prob = 1.0; accept = True; status = 'Accept'
+            n_accept_better += 1
         else:
             prob = math.exp(-delta / T)
             accept = (random.random() < prob)
+            status = 'Accept*' if accept else 'Reject'
             if accept: n_accept_metro += 1
             else: n_reject += 1
-
         if accept:
-            c_curr, wcss_curr = c_cand.copy(), wcss_cand
+            c_curr = c_cand.copy(); wcss_curr = wcss_cand
             if prev_was_worse and wcss_curr < wcss_best: n_escape += 1
             prev_was_worse = (delta >= 0)
         else:
             prev_was_worse = False
-
         if wcss_curr < wcss_best:
-            wcss_best, c_best = wcss_curr, c_curr.copy()
-
-        history.append(dict(iter=it, T=round(T,8), wcss_curr=round(wcss_curr,4),
-                            wcss_best=round(wcss_best,4), delta=round(delta,4),
-                            prob=round(prob,6),
-                            status="Accept" if accept else "Reject"))
+            wcss_best = wcss_curr; c_best = c_curr.copy()
+        history.append({'iter': it, 'T': round(T,6), 'wcss_curr': round(wcss_curr,4),
+                         'wcss_best': round(wcss_best,4), 'delta': round(delta,4),
+                         'prob': round(prob,6), 'status': status})
         t_log.append(T); wcss_log.append(wcss_curr); wcss_best_log.append(wcss_best)
         T *= alpha
 
     elapsed = time.time() - t0
     wcss_final, lbl_final, c_final = eval_wcss(c_best)
     total = n_accept_better + n_accept_metro + n_reject
+    return {
+        'wcss_init': wcss_init, 'wcss_best_sa': wcss_best, 'wcss_final': wcss_final,
+        'labels': lbl_final, 'centers': c_final, 'hist': pd.DataFrame(history),
+        't_log': t_log, 'wcss_log': wcss_log, 'wcss_best_log': wcss_best_log,
+        'iters': it, 'time': elapsed, 'accept_rate': (n_accept_better+n_accept_metro)/total*100,
+        'n_metro': n_accept_metro, 'n_better': n_accept_better,
+        'n_reject': n_reject, 'n_escape': n_escape,
+        'sil': silhouette_score(X, lbl_final),
+        'db': davies_bouldin_score(X, lbl_final),
+        'ch': calinski_harabasz_score(X, lbl_final),
+        'WCSS_BASE': WCSS_BASE
+    }
 
-    return dict(
-        wcss_init=wcss_init, wcss_best_sa=wcss_best,
-        wcss_final=wcss_final, labels=lbl_final, centers=c_final,
-        hist=pd.DataFrame(history),
-        t_log=t_log, wcss_log=wcss_log, wcss_best_log=wcss_best_log,
-        iters=it, time=elapsed,
-        accept_rate=(n_accept_better+n_accept_metro)/total*100,
-        n_metro=n_accept_metro, n_better=n_accept_better,
-        n_reject=n_reject, n_escape=n_escape,
-        sil=silhouette_score(X, lbl_final),
-        db=davies_bouldin_score(X, lbl_final),
-        ch=calinski_harabasz_score(X, lbl_final),
-        T0=T0, alpha=alpha, sigma=sigma, max_iter=max_iter,
-    )
+# ── LOAD & PROSES DATA ────────────────────────────────────────────────────────
+df_raw = load_data()
+df, X_scaled, scaler, FEATURES = preprocess_data(df_raw)
+pca_full, pca3, pca2, X3, X2, EV, EV_CUM = run_pca(X_scaled)
+df_k, K_OPT = find_optimal_k(X3)
+N_CLU = 3; N_VIZ = 2
+feat_short = ['Genre','Age','Income','Score']
+FEATURES_DISPLAY = ['Genre_enc','Age','Annual Income (k$)','Spending Score (1-100)']
+NUM_COLS = ['Age','Annual Income (k$)','Spending Score (1-100)']
 
-
-# ──────────────────────────────────────────────────────────────────────────
-#  CACHED PIPELINE
-# ──────────────────────────────────────────────────────────────────────────
-@st.cache_data
-def load_and_preprocess(uploaded_bytes, sep=";"):
-    import io
-    df = pd.read_csv(io.BytesIO(uploaded_bytes), sep=sep)
-    le = LabelEncoder()
-    df["Genre_enc"] = le.fit_transform(df["Genre"])
-    FEATURES = ["Genre_enc","Age","Annual Income (k$)","Spending Score (1-100)"]
-    X_raw = df[FEATURES].values
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X_raw)
-    return df, X_scaled, scaler, FEATURES
-
-
-@st.cache_data
-def run_pca(X_scaled, n_components=3):
-    pca_full = PCA().fit(X_scaled)
-    EV = pca_full.explained_variance_ratio_
-    EV_CUM = np.cumsum(EV)
-    pca3 = PCA(n_components=n_components).fit(X_scaled)
-    pca2 = PCA(n_components=2).fit(X_scaled)
-    X3 = pca3.transform(X_scaled)
-    X2 = pca2.transform(X_scaled)
-    return pca_full, pca3, pca2, X3, X2, EV, EV_CUM
-
-
-@st.cache_data
-def find_optimal_k(X3, k_max=10):
-    rows = []
-    for k in range(2, k_max+1):
-        km = KMeans(n_clusters=k, init="k-means++", n_init=20, random_state=42).fit(X3)
-        lbl = km.labels_
-        rows.append(dict(K=k, WCSS=km.inertia_,
-                         Silhouette=silhouette_score(X3, lbl),
-                         Davies_Bouldin=davies_bouldin_score(X3, lbl),
-                         Calinski_H=calinski_harabasz_score(X3, lbl)))
-    df_k = pd.DataFrame(rows).set_index("K")
-    K_opt = int(df_k["Silhouette"].idxmax())
-    return df_k, K_opt
-
-
-@st.cache_data
-def get_baselines(X3, K):
-    km_rand = KMeans(n_clusters=K, init="random",    n_init=30, random_state=42).fit(X3)
-    km_kpp  = KMeans(n_clusters=K, init="k-means++", n_init=30, random_state=42).fit(X3)
-    return km_rand, km_kpp
-
-
-@st.cache_data
-def run_sa_cached(X3_bytes, K, T0, alpha, T_min, max_iter, sigma, seed):
-    X3 = np.frombuffer(X3_bytes).reshape(-1, K if K > 0 else 3)
-    return run_sa(X3, K, T0=T0, alpha=alpha, T_min=T_min,
-                  max_iter=max_iter, sigma=sigma, seed=seed)
-
-
-@st.cache_data
-def run_sensitivity(X3_bytes, K, ALPHAS, SIGMAS, T0, T_min, max_iter):
-    X3 = np.frombuffer(X3_bytes).reshape(-1, 3)
-    SENS = []
-    for alpha, sigma in itertools.product(ALPHAS, SIGMAS):
-        r = run_sa(X3, K, T0=T0, alpha=alpha, T_min=T_min,
-                   max_iter=max_iter, sigma=sigma, seed=42)
-        r.update({"alpha": alpha, "sigma": sigma})
-        SENS.append(r)
-    return SENS
-
-
-# ──────────────────────────────────────────────────────────────────────────
-#  SIDEBAR
-# ──────────────────────────────────────────────────────────────────────────
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style='padding:16px 0 8px; text-align:center'>
-      <div style='font-size:32px'>🧠</div>
-      <div style='font-size:16px;font-weight:700;letter-spacing:1px'>Mall Segmentation</div>
-      <div style='font-size:11px;color:#7986CB;margin-top:4px'>PCA · SA · K-Means</div>
+    <div style='padding: 0.5rem 0 1.2rem; border-bottom: 1px solid #1E2235; margin-bottom: 1.2rem;'>
+        <div style='font-size:0.7rem; color:#5C6A8A; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:0.3rem;'>
+            SEGMENTASI PELANGGAN
+        </div>
+        <div style='font-size:1.15rem; font-weight:700; color:#E8EAF6;'>
+            SA + PCA + K-Means
+        </div>
+        <div style='font-size:0.78rem; color:#4A5268; margin-top:0.25rem;'>
+            Mall Customer Dataset · 200 samples
+        </div>
     </div>
-    <hr style='border-color:#2C2F3E;margin:12px 0'>
     """, unsafe_allow_html=True)
 
-    uploaded = st.file_uploader("📂 Upload Mall_Customers.csv", type=["csv"])
-    csv_sep  = st.selectbox("Separator", [";", ",", "\\t"], index=0)
-
+    st.markdown("**Parameter Simulated Annealing**")
+    
+    T0 = st.slider("Suhu Awal (T₀)", 10.0, 200.0, 100.0, 10.0)
+    alpha = st.slider("Cooling Rate (α)", 0.80, 0.99, 0.95, 0.01)
+    sigma = st.slider("Perturbasi (σ)", 0.1, 1.5, 0.5, 0.1)
+    max_iter = st.slider("Max Iterasi", 100, 1000, 600, 50)
+    K_input = st.slider("Jumlah Cluster (K)", 2, 8, K_OPT, 1)
+    
     st.markdown("---")
-    st.markdown("**⚙️ PCA Settings**")
-    n_pca = st.slider("PCA Components (Clustering)", 2, 4, 3)
-    k_max = st.slider("Max K (Elbow Search)", 5, 15, 10)
-
+    run_btn = st.button("▶  Jalankan SA", type="primary", use_container_width=True)
+    
     st.markdown("---")
-    st.markdown("**🔥 Simulated Annealing**")
-    T0    = st.slider("T₀  (Suhu Awal)",     10.0, 200.0, 100.0, 10.0)
-    alpha = st.slider("α   (Cooling Rate)",   0.80, 0.99,  0.95,  0.01)
-    sigma = st.slider("σ   (Perturbasi Std)", 0.1,  1.5,   0.5,   0.1)
-    max_iter_sa = st.slider("Max Iterasi SA",  200, 1000, 600, 100)
-
-    st.markdown("---")
-    st.markdown("**📊 Sensitivity Grid**")
-    alphas_str = st.text_input("α values (comma)", "0.85,0.92,0.97")
-    sigmas_str = st.text_input("σ values (comma)", "0.3,0.5,0.8")
-
-    run_btn = st.button("▶  Run Analysis", use_container_width=True, type="primary")
-
-
-# ──────────────────────────────────────────────────────────────────────────
-#  HEADER
-# ──────────────────────────────────────────────────────────────────────────
-st.markdown("""
-<div style='
-  background:linear-gradient(135deg,#1A1D2B 0%,#0F1117 100%);
-  border:1px solid #2C2F3E; border-radius:16px;
-  padding:32px 36px 28px; margin-bottom:28px;
-'>
-  <div style='display:flex;align-items:center;gap:16px;margin-bottom:8px'>
-    <span style='font-size:40px'>🏬</span>
-    <div>
-      <h1 style='margin:0;font-size:26px;letter-spacing:-.5px'>
-        Mall Customer Segmentation Dashboard
-      </h1>
-      <p style='margin:4px 0 0;color:#7986CB;font-size:14px'>
-        Principal Component Analysis  ·  Simulated Annealing  ·  K-Means Clustering
-      </p>
+    st.markdown("""
+    <div style='font-size:0.72rem; color:#3A4260; line-height:1.7;'>
+        <b style='color:#4A5568;'>Panduan Parameter</b><br>
+        • <b style='color:#5C6BC0;'>α rendah</b> = konvergen cepat<br>
+        • <b style='color:#26A69A;'>α tinggi</b> = eksplorasi luas<br>
+        • <b style='color:#FFA726;'>σ kecil</b> = gerak presisi<br>
+        • <b style='color:#EF5350;'>σ besar</b> = berani keluar lokal
     </div>
-  </div>
-  <div style='display:flex;gap:8px;margin-top:16px;flex-wrap:wrap'>
-    <span class="tag">PCA</span>
-    <span class="tag">K-Means</span>
-    <span class="tag">Simulated Annealing</span>
-    <span class="tag">Plotly Interactive</span>
-  </div>
+    """, unsafe_allow_html=True)
+
+# ── HEADER UTAMA ──────────────────────────────────────────────────────────────
+st.markdown("""
+<div class='main-header'>
+    <h1>🏬 Mall Customer Segmentation</h1>
+    <p>Analisis klasterisasi menggunakan PCA · Simulated Annealing · K-Means Clustering</p>
 </div>
 """, unsafe_allow_html=True)
 
-# ──────────────────────────────────────────────────────────────────────────
-#  GUARD: Need file
-# ──────────────────────────────────────────────────────────────────────────
-if uploaded is None:
-    st.info("⬅️  Upload file **Mall_Customers.csv** di sidebar untuk memulai analisis.")
-    st.markdown("""
-    <div style='background:#1A1D2B;border:1px dashed #2C2F3E;border-radius:12px;padding:24px;margin-top:16px'>
-      <h4 style='margin:0 0 12px'>📋 Format Data yang Diperlukan</h4>
-      <p style='color:#7986CB'>Kolom wajib dalam file CSV:</p>
-      <ul style='color:#7986CB'>
-        <li><code>CustomerID</code></li>
-        <li><code>Genre</code> (Male/Female)</li>
-        <li><code>Age</code></li>
-        <li><code>Annual Income (k$)</code></li>
-        <li><code>Spending Score (1-100)</code></li>
-      </ul>
-    </div>
-    """, unsafe_allow_html=True)
-    st.stop()
-
-# ──────────────────────────────────────────────────────────────────────────
-#  LOAD DATA
-# ──────────────────────────────────────────────────────────────────────────
-raw_bytes = uploaded.read()
-sep_map = {";": ";", ",": ",", "\\t": "\t"}
-df, X_scaled, scaler, FEATURES = load_and_preprocess(raw_bytes, sep=sep_map[csv_sep])
-NUM_COLS = ["Age","Annual Income (k$)","Spending Score (1-100)"]
-
-# PCA
-pca_full, pca3, pca2, X3, X2, EV, EV_CUM = run_pca(X_scaled, n_components=n_pca)
-
-# Optimal K
-df_k, K_opt = find_optimal_k(X3, k_max=k_max)
-
-# Baselines
-km_rand, km_kpp = get_baselines(X3, K_opt)
-WCSS_BASE = km_kpp.inertia_
-SIL_BASE  = silhouette_score(X3, km_kpp.labels_)
-DB_BASE   = davies_bouldin_score(X3, km_kpp.labels_)
-CH_BASE   = calinski_harabasz_score(X3, km_kpp.labels_)
-
-# SA
-with st.spinner("⚡ Menjalankan Simulated Annealing..."):
-    X3_bytes = X3.tobytes()
-    RES = run_sa_cached(X3_bytes, K_opt, T0, alpha, 1e-3, max_iter_sa, sigma, 42)
-
-df["Cluster"] = RES["labels"]
-cluster_ids   = sorted(df["Cluster"].unique())
-profile = df.groupby("Cluster")[NUM_COLS].mean().round(2)
-profile["N"] = df.groupby("Cluster").size()
-profile["%"] = (profile["N"] / len(df) * 100).round(1)
-
-# SA sensitivity
-try:
-    ALPHAS_S = [float(x.strip()) for x in alphas_str.split(",")]
-    SIGMAS_S = [float(x.strip()) for x in sigmas_str.split(",")]
-except:
-    ALPHAS_S = [0.85, 0.92, 0.97]; SIGMAS_S = [0.3, 0.5, 0.8]
-
-with st.spinner("📊 Menghitung sensitivitas parameter..."):
-    SENS = run_sensitivity(X3_bytes, K_opt, ALPHAS_S, SIGMAS_S, T0, 1e-3, max_iter_sa)
-
-# ──────────────────────────────────────────────────────────────────────────
-#  EXECUTIVE METRIC STRIP
-# ──────────────────────────────────────────────────────────────────────────
-imp_wcss = (WCSS_BASE - RES["wcss_final"]) / WCSS_BASE * 100
-imp_sil  = RES["sil"] - SIL_BASE
-
-metric_cards([
-    ("Pelanggan", f"{len(df)}", None, ""),
-    ("Cluster Optimal (K)", f"{K_opt}", f"Silhouette {df_k.loc[K_opt,'Silhouette']:.4f}", ACCENT),
-    ("SA WCSS Final", f"{RES['wcss_final']:.2f}", f"{'↓ ' if imp_wcss>0 else '↑ '}{abs(imp_wcss):.1f}% vs K-Means++",
-     "#26A69A" if imp_wcss>0 else "#EF5350"),
-    ("Silhouette SA", f"{RES['sil']:.4f}", f"{'↑' if imp_sil>=0 else '↓'} {abs(imp_sil):.4f} vs baseline",
-     "#26A69A" if imp_sil>=0 else "#EF5350"),
-    ("SA Iterasi", f"{RES['iters']}", f"Waktu {RES['time']:.2f}s", MUTED),
-    ("Acceptance Rate", f"{RES['accept_rate']:.1f}%", f"Metro {RES['n_metro']} | Escape {RES['n_escape']}", MUTED),
-])
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ──────────────────────────────────────────────────────────────────────────
-#  TABS
-# ──────────────────────────────────────────────────────────────────────────
-tabs = st.tabs([
-    "📊 EDA",
-    "🔵 PCA",
-    "🎯 Elbow & K",
-    "🔥 Simulated Annealing",
-    "🗺 Clustering",
-    "👤 Profil Cluster",
-    "⚗️ Sensitivitas",
-    "⚖️ Perbandingan",
-])
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 1 — EDA
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[0]:
-    section_header("📊", "Eksplorasi Data Awal (EDA)")
-
-    c1, c2 = st.columns([2, 1])
-    with c1:
-        # Histogram grid
-        fig = make_subplots(rows=1, cols=3,
-                            subplot_titles=["Age","Annual Income (k$)","Spending Score"])
-        for i, col in enumerate(NUM_COLS):
-            fig.add_trace(go.Histogram(
-                x=df[col], name=col, nbinsx=20,
-                marker_color=PAL[i], opacity=0.85,
-                showlegend=False,
-            ), row=1, col=i+1)
-            mean_v = df[col].mean()
-            fig.add_vline(x=mean_v, line_dash="dash", line_color="white",
-                          line_width=1.5, row=1, col=i+1)
-        fig.update_layout(**PLOTLY_LAYOUT, title="Distribusi Fitur Numerik", height=320)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        gc = df["Genre"].value_counts()
-        fig2 = go.Figure(go.Pie(
-            labels=gc.index, values=gc.values,
-            hole=0.55,
-            marker_colors=["#AB47BC","#42A5F5"],
-            textfont_color=FG,
-        ))
-        fig2.update_layout(**PLOTLY_LAYOUT, title="Distribusi Genre",
-                           height=320, showlegend=True)
-        st.plotly_chart(fig2, use_container_width=True)
-
-    c3, c4 = st.columns(2)
-    with c3:
-        # Scatter matrix
-        pairs = [("Age","Spending Score (1-100)"),
-                 ("Annual Income (k$)","Spending Score (1-100)"),
-                 ("Age","Annual Income (k$)")]
-        fig3 = make_subplots(rows=1, cols=3,
-                             subplot_titles=["Age vs Score","Income vs Score","Age vs Income"])
-        for i, (cx, cy) in enumerate(pairs):
-            fig3.add_trace(go.Scatter(
-                x=df[cx], y=df[cy], mode="markers",
-                marker=dict(color=PAL[i], size=5, opacity=0.5),
-                showlegend=False,
-            ), row=1, col=i+1)
-        fig3.update_layout(**PLOTLY_LAYOUT, title="Scatter Plots", height=320)
-        st.plotly_chart(fig3, use_container_width=True)
-
-    with c4:
-        corr = df[NUM_COLS].corr()
-        fig4 = go.Figure(go.Heatmap(
-            z=corr.values,
-            x=["Age","Income","Score"],
-            y=["Age","Income","Score"],
-            colorscale=[[0,"#EF5350"],[0.5,CARD],[1,"#26A69A"]],
-            zmin=-1, zmax=1,
-            text=corr.round(2).values,
-            texttemplate="%{text}",
-            showscale=True,
-        ))
-        fig4.update_layout(**PLOTLY_LAYOUT, title="Matriks Korelasi", height=320)
-        st.plotly_chart(fig4, use_container_width=True)
-
-    st.markdown("**📋 Statistik Deskriptif**")
-    st.dataframe(df[NUM_COLS].describe().round(2)
-                 .style.background_gradient(cmap="Blues", axis=1),
-                 use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 2 — PCA
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[1]:
-    section_header("🔵", "Principal Component Analysis (PCA)")
-
-    feat_short = ["Genre","Age","Income","Score"]
-    load_df = pd.DataFrame(pca3.components_.T, index=FEATURES,
-                           columns=[f"PC{i+1}" for i in range(n_pca)])
-
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        # Scree plot
-        xp = list(range(1, len(EV)+1))
-        colors_bar = [PAL[0] if i < n_pca else "#3D3F52" for i in range(len(EV))]
-        fig = go.Figure()
-        fig.add_trace(go.Bar(
-            x=xp, y=(EV*100).tolist(),
-            marker_color=colors_bar, name="Explained Variance",
-            text=[f"{v:.1f}%" for v in EV*100],
-            textposition="outside",
-        ))
-        fig.add_trace(go.Scatter(
-            x=xp, y=(EV_CUM*100).tolist(),
-            mode="lines+markers", name="Kumulatif",
-            line=dict(color=ACCENT, width=2.5),
-            marker=dict(size=7, color=ACCENT),
-        ))
-        fig.add_hline(y=80, line_dash="dot", line_color="white",
-                      line_width=1, annotation_text="80% Threshold",
-                      annotation_font_color=MUTED)
-        fig.add_vline(x=n_pca+0.5, line_dash="dash", line_color=PAL[1], line_width=1.5)
-        fig.update_layout(**PLOTLY_LAYOUT, title=f"Scree Plot  — PC1–PC{n_pca} dipilih ({EV_CUM[n_pca-1]*100:.1f}% var)",
-                          height=380, yaxis_title="Explained Variance (%)")
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        # Biplot (PC1 vs PC2)
-        fig2 = go.Figure()
-        fig2.add_trace(go.Scatter(
-            x=X2[:,0], y=X2[:,1], mode="markers",
-            marker=dict(color="#3D3F52", size=5, opacity=0.35),
-            name="Data Points", showlegend=False,
-        ))
-        for i, feat in enumerate(FEATURES):
-            scale = 3.0
-            lx, ly = pca2.components_[0,i]*scale, pca2.components_[1,i]*scale
-            fig2.add_annotation(x=lx, y=ly, ax=0, ay=0,
-                                xref="x", yref="y", axref="x", ayref="y",
-                                showarrow=True,
-                                arrowhead=2, arrowwidth=2.5, arrowcolor=PAL[i])
-            fig2.add_annotation(x=lx*1.2, y=ly*1.2, text=feat_short[i],
-                                font=dict(color=PAL[i], size=12), showarrow=False)
-        fig2.update_layout(**PLOTLY_LAYOUT, title="Biplot — Loading Vektor",
-                           height=380, xaxis_title=f"PC1 ({EV[0]*100:.1f}%)",
-                           yaxis_title=f"PC2 ({EV[1]*100:.1f}%)")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # Loading heatmap
-    lv = pca3.components_
-    fig3 = go.Figure(go.Heatmap(
-        z=lv, x=feat_short,
-        y=[f"PC{i+1}" for i in range(n_pca)],
-        colorscale=[[0,"#EF5350"],[0.5,CARD],[1,"#5C6BC0"]],
-        zmin=-1, zmax=1,
-        text=np.round(lv,3),
-        texttemplate="%{text}",
-        showscale=True,
-    ))
-    fig3.update_layout(**PLOTLY_LAYOUT, title="Heatmap Loading Matrix", height=280)
-    st.plotly_chart(fig3, use_container_width=True)
-
-    with st.expander("📋 Detail Loading Matrix"):
-        st.dataframe(load_df.round(4), use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 3 — ELBOW & K
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[2]:
-    section_header("🎯", f"Penentuan K Optimal  (K = {K_opt})")
-
-    kl = list(df_k.index)
-    metrics_info = [
-        ("WCSS", df_k["WCSS"].tolist(), True, PAL[0]),
-        ("Silhouette", df_k["Silhouette"].tolist(), False, PAL[1]),
-        ("Davies-Bouldin", df_k["Davies_Bouldin"].tolist(), True, PAL[2]),
-        ("Calinski-H", df_k["Calinski_H"].tolist(), False, PAL[3]),
-    ]
-
-    fig = make_subplots(rows=2, cols=2,
-                        subplot_titles=[f"{m} ({'↓' if l else '↑'} terbaik)"
-                                        for m, _, l, _ in metrics_info])
-    for idx, (name, vals, low, col) in enumerate(metrics_info):
-        r, c = divmod(idx, 2)
-        best_k_idx = np.argmin(vals) if low else np.argmax(vals)
-        fig.add_trace(go.Scatter(
-            x=kl, y=vals, mode="lines+markers",
-            line=dict(color=col, width=2.5),
-            marker=dict(size=8, color=col,
-                        symbol=["circle"]*len(kl)),
-            name=name,
-        ), row=r+1, col=c+1)
-        fig.add_vline(x=kl[best_k_idx], line_dash="dot", line_color="white",
-                      line_width=1.5, row=r+1, col=c+1)
-        fig.add_trace(go.Scatter(
-            x=[kl[best_k_idx]], y=[vals[best_k_idx]],
-            mode="markers",
-            marker=dict(size=14, color=col,
-                        symbol="star", line=dict(color="white", width=1.5)),
-            showlegend=False, name=f"Optimal K={kl[best_k_idx]}",
-        ), row=r+1, col=c+1)
-
-    fig.update_layout(**PLOTLY_LAYOUT, title=f"Pemilihan K Optimal (k_max={k_max})", height=600)
-    fig.update_xaxes(tickvals=kl, gridcolor=GRID_C)
-    fig.update_yaxes(gridcolor=GRID_C)
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.dataframe(df_k.style.highlight_max(subset=["Silhouette","Calinski_H"], color="#1e3a2f")
-                           .highlight_min(subset=["WCSS","Davies_Bouldin"], color="#1e3a2f"),
-                 use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 4 — SIMULATED ANNEALING
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[3]:
-    section_header("🔥", "Mekanisme Simulated Annealing")
-
-    hist_df = RES["hist"]
-    iters_x = hist_df["iter"].values
-
-    c1, c2 = st.columns(2)
-    with c1:
-        # WCSS convergence
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=iters_x, y=hist_df["wcss_curr"].values,
-            mode="lines", name="WCSS Saat Ini",
-            line=dict(color=PAL[0], width=0.9), opacity=0.5,
-        ))
-        fig.add_trace(go.Scatter(
-            x=iters_x, y=hist_df["wcss_best"].values,
-            mode="lines", name="WCSS Terbaik (SA)",
-            line=dict(color=ACCENT, width=2.5),
-        ))
-        fig.add_hline(y=WCSS_BASE, line_dash="dash", line_color=PAL[2],
-                      annotation_text=f"K-Means++ baseline ({WCSS_BASE:.2f})",
-                      annotation_font_color=PAL[2])
-        fig.add_hline(y=RES["wcss_final"], line_dash="dot", line_color=PAL[1],
-                      annotation_text=f"SA Final ({RES['wcss_final']:.2f})",
-                      annotation_font_color=PAL[1])
-        fig.update_layout(**PLOTLY_LAYOUT, title="Konvergensi WCSS",
-                          xaxis_title="Iterasi", yaxis_title="WCSS", height=380)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        # Cooling schedule
-        fig2 = go.Figure()
-        t_vals = RES["t_log"]
-        n = len(t_vals)
-        fig2.add_trace(go.Scatter(
-            x=list(range(n)), y=t_vals,
-            mode="lines", name="Suhu T",
-            line=dict(color=PAL[2], width=2),
-            fill="tozeroy", fillcolor="rgba(239,83,80,.08)",
-        ))
-        for zone, x0, x1, col, label in [
-            ("Eksplorasi", 0, int(n*0.20), PAL[2], "Eksplorasi"),
-            ("Transisi",   int(n*0.20), int(n*0.65), ACCENT, "Transisi"),
-            ("Eksploitasi", int(n*0.65), n-1, PAL[1], "Eksploitasi"),
-        ]:
-            fig2.add_vrect(x0=x0, x1=x1, fillcolor=col, opacity=0.06,
-                           annotation_text=label, annotation_position="top left",
-                           annotation_font_color=col)
-        fig2.update_yaxes(type="log")
-        fig2.update_layout(**PLOTLY_LAYOUT, title=f"Cooling Schedule  α={alpha}",
-                           xaxis_title="Iterasi", yaxis_title="Suhu T (log)", height=380)
-        st.plotly_chart(fig2, use_container_width=True)
-
-    c3, c4 = st.columns(2)
-    with c3:
-        # Delta E distribution
-        d_neg = hist_df["delta"][hist_df["delta"] < 0]
-        d_pos = hist_df["delta"][hist_df["delta"] > 0]
-        fig3 = go.Figure()
-        fig3.add_trace(go.Histogram(
-            x=d_neg, name=f"ΔE<0 Accept ({len(d_neg)})",
-            marker_color=PAL[1], opacity=0.85, nbinsx=35,
-        ))
-        fig3.add_trace(go.Histogram(
-            x=d_pos, name=f"ΔE>0 Metropolis ({len(d_pos)})",
-            marker_color=PAL[2], opacity=0.85, nbinsx=35,
-        ))
-        fig3.add_vline(x=0, line_dash="dash", line_color="white")
-        fig3.update_layout(**PLOTLY_LAYOUT, title="Distribusi ΔE per Iterasi",
-                           barmode="overlay", xaxis_title="ΔE", yaxis_title="Frekuensi",
-                           height=380)
-        st.plotly_chart(fig3, use_container_width=True)
-
-    with c4:
-        # Acceptance rate per block
-        block = max(20, len(hist_df)//30)
-        acc_blk, centers_blk = [], []
-        for i in range(0, len(hist_df), block):
-            chunk = hist_df.iloc[i:i+block]
-            n_acc = (chunk["status"] == "Accept").sum()
-            acc_blk.append(n_acc / len(chunk) * 100)
-            centers_blk.append(i + block//2)
-
-        fig4 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig4.add_trace(go.Bar(
-            x=centers_blk, y=acc_blk,
-            name="Acceptance Rate (%)",
-            marker_color=PAL[0], opacity=0.8,
-        ), secondary_y=False)
-        fig4.add_trace(go.Scatter(
-            x=list(range(len(RES["t_log"]))), y=RES["t_log"],
-            mode="lines", name="Suhu T",
-            line=dict(color=PAL[2], width=1.5, dash="dot"),
-        ), secondary_y=True)
-        fig4.add_hline(y=50, line_dash="dot", line_color="white", line_width=1, secondary_y=False)
-        fig4.update_yaxes(type="log", secondary_y=True, title_text="Suhu T", gridcolor=GRID_C)
-        fig4.update_layout(**PLOTLY_LAYOUT, title="Acceptance Rate per Blok + Cooling",
-                           xaxis_title="Iterasi", yaxis_title="Acceptance Rate (%)", height=380)
-        st.plotly_chart(fig4, use_container_width=True)
-
-    # Metropolis curve
-    section_header("📐", "Kurva Probabilitas Metropolis (Teoritis)")
-    T_axis = np.linspace(0.01, T0, 500)
-    fig5 = go.Figure()
-    for de, col_m in zip([0.5, 1.0, 2.0, 5.0, 10.0], PAL):
-        probs = np.exp(-de / T_axis)
-        fig5.add_trace(go.Scatter(
-            x=T_axis, y=probs, mode="lines",
-            name=f"ΔE={de:.1f}",
-            line=dict(color=col_m, width=2),
-        ))
-    fig5.update_layout(**PLOTLY_LAYOUT, title="P(terima) = exp(−ΔE/T)",
-                       xaxis_title="Suhu T", yaxis_title="P(terima)", height=360)
-    st.plotly_chart(fig5, use_container_width=True)
-
-    # SA Summary stats
-    with st.expander("📊 Ringkasan SA"):
-        total_sa = RES["n_better"] + RES["n_metro"] + RES["n_reject"]
-        scols = st.columns(4)
-        for col, (k_lbl, v) in zip(scols, [
-            ("Accept ΔE<0", f"{RES['n_better']} ({RES['n_better']/total_sa*100:.1f}%)"),
-            ("Accept Metro", f"{RES['n_metro']} ({RES['n_metro']/total_sa*100:.1f}%)"),
-            ("Reject",       f"{RES['n_reject']} ({RES['n_reject']/total_sa*100:.1f}%)"),
-            ("Escape Local", str(RES["n_escape"])),
-        ]):
-            col.metric(k_lbl, v)
-
-    with st.expander("📋 Tabel Iterasi (50 baris)"):
-        st.dataframe(hist_df.head(50), use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 5 — CLUSTERING (2D + 3D)
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[4]:
-    section_header("🗺", f"Hasil Clustering SA+K-Means  (K={K_opt})")
-
-    c1, c2 = st.columns([1, 1])
-    with c1:
-        # 2D PCA scatter
-        cents_2d = pca2.transform(pca3.inverse_transform(RES["centers"]))
-        fig = go.Figure()
-        for c in cluster_ids:
-            m = RES["labels"] == c
-            fig.add_trace(go.Scatter(
-                x=X2[m,0], y=X2[m,1], mode="markers",
-                name=f"Cluster {c}  (n={m.sum()})",
-                marker=dict(color=PAL[c%len(PAL)], size=7, opacity=0.75,
-                            line=dict(color="white", width=0.4)),
-            ))
-        fig.add_trace(go.Scatter(
-            x=cents_2d[:,0], y=cents_2d[:,1], mode="markers",
-            name="Centroid", marker=dict(color="white", size=16,
-                                          symbol="star", line=dict(color="black", width=1)),
-        ))
-        fig.update_layout(**PLOTLY_LAYOUT, title="Proyeksi 2D (PC1 vs PC2)",
-                          xaxis_title=f"PC1 ({EV[0]*100:.1f}%)",
-                          yaxis_title=f"PC2 ({EV[1]*100:.1f}%)", height=460)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        # 3D PCA scatter
-        fig3d = go.Figure()
-        for c in cluster_ids:
-            m = RES["labels"] == c
-            fig3d.add_trace(go.Scatter3d(
-                x=X3[m,0], y=X3[m,1], z=X3[m,2],
-                mode="markers", name=f"Cluster {c}",
-                marker=dict(color=PAL[c%len(PAL)], size=4, opacity=0.65),
-            ))
-        fig3d.add_trace(go.Scatter3d(
-            x=RES["centers"][:,0], y=RES["centers"][:,1],
-            z=RES["centers"][:,2] if n_pca >= 3 else np.zeros(K_opt),
-            mode="markers", name="Centroid",
-            marker=dict(color="white", size=8, symbol="diamond"),
-        ))
-        fig3d.update_layout(
-            paper_bgcolor=CARD, plot_bgcolor=CARD,
-            font=dict(color=FG),
-            title=dict(text="Proyeksi 3D (PC1–PC3)", font=dict(size=14)),
-            scene=dict(
-                bgcolor=CARD,
-                xaxis=dict(title="PC1", gridcolor=GRID_C, backgroundcolor=CARD),
-                yaxis=dict(title="PC2", gridcolor=GRID_C, backgroundcolor=CARD),
-                zaxis=dict(title="PC3", gridcolor=GRID_C, backgroundcolor=CARD),
-            ),
-            height=460,
-            margin=dict(l=0, r=0, t=50, b=0),
-        )
-        st.plotly_chart(fig3d, use_container_width=True)
-
-    # Original feature scatter colored by cluster
-    section_header("🎨", "Scatter Fitur Asli per Cluster")
-    c3, c4, c5 = st.columns(3)
-    pairs_orig = [
-        ("Age","Spending Score (1-100)","Age vs Spending Score"),
-        ("Annual Income (k$)","Spending Score (1-100)","Income vs Spending Score"),
-        ("Age","Annual Income (k$)","Age vs Annual Income"),
-    ]
-    for col_st, (cx, cy, title_p) in zip([c3,c4,c5], pairs_orig):
-        fig_p = go.Figure()
-        for c in cluster_ids:
-            m = df["Cluster"] == c
-            fig_p.add_trace(go.Scatter(
-                x=df.loc[m, cx], y=df.loc[m, cy], mode="markers",
-                name=f"C{c}", marker=dict(color=PAL[c%len(PAL)], size=7, opacity=0.7),
-            ))
-        fig_p.update_layout(**PLOTLY_LAYOUT, title=title_p,
-                            xaxis_title=cx, yaxis_title=cy, height=340,
-                            showlegend=True)
-        col_st.plotly_chart(fig_p, use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 6 — PROFIL CLUSTER
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[5]:
-    section_header("👤", "Profil & Interpretasi Segmen Pelanggan")
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        # Bar grouped means
-        fig = go.Figure()
-        for i, col in enumerate(NUM_COLS):
-            fig.add_trace(go.Bar(
-                x=[f"C{c}" for c in cluster_ids],
-                y=[profile.loc[c, col] for c in cluster_ids],
-                name=col.split("(")[0].strip(),
-                marker_color=PAL[i], opacity=0.85,
-            ))
-        fig.update_layout(**PLOTLY_LAYOUT, barmode="group",
-                          title="Rata-rata Fitur per Cluster", height=380)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        # Pie cluster size
-        fig2 = go.Figure(go.Pie(
-            labels=[f"Cluster {c}" for c in cluster_ids],
-            values=[profile.loc[c,"N"] for c in cluster_ids],
-            hole=0.5,
-            marker_colors=PAL[:K_opt],
-            textfont_color=FG,
-        ))
-        fig2.update_layout(**PLOTLY_LAYOUT, title="Distribusi Anggota", height=380)
-        st.plotly_chart(fig2, use_container_width=True)
-
-    with c3:
-        # Normalized heatmap
-        hd = profile[NUM_COLS].values.astype(float)
-        hn = (hd - hd.min(0)) / (hd.max(0) - hd.min(0) + 1e-9)
-        fig3 = go.Figure(go.Heatmap(
-            z=hn,
-            x=["Age","Income","Score"],
-            y=[f"C{c}" for c in cluster_ids],
-            colorscale=[[0,CARD],[0.5,PAL[0]],[1,PAL[1]]],
-            text=np.round(hd, 1),
-            texttemplate="%{text}",
-            showscale=True,
-        ))
-        fig3.update_layout(**PLOTLY_LAYOUT, title="Heatmap Profil (Normalized)", height=380)
-        st.plotly_chart(fig3, use_container_width=True)
-
-    # Violin plots
-    section_header("🎻", "Distribusi Fitur per Cluster (Violin)")
-    cv1, cv2, cv3 = st.columns(3)
-    for col_st, feat in zip([cv1, cv2, cv3], NUM_COLS):
-        fig_v = go.Figure()
-        for c in cluster_ids:
-            data_c = df[df["Cluster"]==c][feat].values
-            fig_v.add_trace(go.Violin(
-                y=data_c, name=f"C{c}",
-                box_visible=True, meanline_visible=True,
-                fillcolor=PAL[c%len(PAL)], opacity=0.75,
-                line_color="white",
-            ))
-        fig_v.update_layout(**PLOTLY_LAYOUT,
-                            title=feat.split("(")[0].strip(),
-                            showlegend=False, height=340)
-        col_st.plotly_chart(fig_v, use_container_width=True)
-
-    # Radar charts
-    section_header("🕸", "Radar Chart Profil Cluster")
-    rd = profile[NUM_COLS].copy()
-    for col in rd.columns:
-        rd[col] = (rd[col]-rd[col].min())/(rd[col].max()-rd[col].min()+1e-9)
-    cats = ["Age","Annual Income","Spending Score"]
-
-    radar_cols = st.columns(K_opt)
-    for ci, (c, col_st) in enumerate(zip(cluster_ids, radar_cols)):
-        vals = rd.loc[c].tolist()
-        vals_closed = vals + [vals[0]]
-        cats_closed  = cats + [cats[0]]
-        fig_r = go.Figure(go.Scatterpolar(
-            r=vals_closed, theta=cats_closed,
-            fill="toself", fillcolor=PAL[ci%len(PAL)],
-            line_color=PAL[ci%len(PAL)],
-            opacity=0.65, name=f"Cluster {c}",
-        ))
-        fig_r.update_layout(
-            paper_bgcolor=CARD, plot_bgcolor=CARD,
-            font=dict(color=FG),
-            polar=dict(
-                bgcolor=CARD,
-                radialaxis=dict(visible=True, range=[0,1], gridcolor=GRID_C, color=MUTED),
-                angularaxis=dict(gridcolor=GRID_C, color=FG),
-            ),
-            title=dict(text=f"Cluster {c}  (n={int(profile.loc[c,'N'])})", font=dict(size=13)),
-            height=320, margin=dict(l=30, r=30, t=60, b=30),
-            showlegend=False,
-        )
-        col_st.plotly_chart(fig_r, use_container_width=True)
-
-    # Segment interpretation table
-    section_header("📝", "Interpretasi Segmen")
-    rows_interp = []
-    for c in cluster_ids:
-        r = profile.loc[c]
-        inc_lbl = "Tinggi" if r["Annual Income (k$)"] > 65 else ("Sedang" if r["Annual Income (k$)"] > 42 else "Rendah")
-        sco_lbl = "Tinggi" if r["Spending Score (1-100)"] > 60 else ("Sedang" if r["Spending Score (1-100)"] > 40 else "Rendah")
-        rows_interp.append({
-            "Cluster": f"C{c}", "Usia Rata-rata": f"{r['Age']:.1f}",
-            "Income Rata-rata": f"{r['Annual Income (k$)']:.1f}k$",
-            "Score Rata-rata": f"{r['Spending Score (1-100)']:.1f}",
-            "Anggota": f"{int(r['N'])} ({r['%']:.1f}%)",
-            "Profil": f"Income {inc_lbl} · Spending {sco_lbl}",
-        })
-    st.dataframe(pd.DataFrame(rows_interp), use_container_width=True, hide_index=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 7 — SENSITIVITAS
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[6]:
-    section_header("⚗️", f"Analisis Sensitivitas Parameter SA  (α×σ grid)")
-
-    # Heatmap WCSS
-    heat_wcss = np.array([[r["wcss_final"] for r in SENS if r["alpha"] == a]
-                           for a in ALPHAS_S])
-    heat_sil  = np.array([[r["sil"] for r in SENS if r["alpha"] == a]
-                           for a in ALPHAS_S])
-
-    c1, c2 = st.columns(2)
-    with c1:
-        fig = go.Figure(go.Heatmap(
-            z=heat_wcss,
-            x=[f"σ={s}" for s in SIGMAS_S],
-            y=[f"α={a}" for a in ALPHAS_S],
-            colorscale=[[0,PAL[1]],[0.5,CARD],[1,PAL[2]]],
-            text=np.round(heat_wcss,2),
-            texttemplate="%{text}",
-            showscale=True,
-        ))
-        fig.update_layout(**PLOTLY_LAYOUT, title="Heatmap WCSS Final: α × σ", height=380)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with c2:
-        fig2 = go.Figure(go.Heatmap(
-            z=heat_sil,
-            x=[f"σ={s}" for s in SIGMAS_S],
-            y=[f"α={a}" for a in ALPHAS_S],
-            colorscale=[[0,CARD],[0.5,PAL[0]],[1,PAL[1]]],
-            text=np.round(heat_sil,4),
-            texttemplate="%{text}",
-            showscale=True,
-        ))
-        fig2.update_layout(**PLOTLY_LAYOUT, title="Heatmap Silhouette: α × σ (↑ terbaik)", height=380)
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # Bar WCSS all combinations
-    labels_b = [f"α={r['alpha']} σ={r['sigma']}" for r in SENS]
-    wcss_b   = [r["wcss_final"] for r in SENS]
-    col_b    = [PAL[1] if w < WCSS_BASE else PAL[2] for w in wcss_b]
-    fig3 = go.Figure(go.Bar(
-        x=labels_b, y=wcss_b,
-        marker_color=col_b, opacity=0.85,
-        text=[f"{w:.2f}" for w in wcss_b],
-        textposition="outside",
-    ))
-    fig3.add_hline(y=WCSS_BASE, line_dash="dash", line_color="white", line_width=2,
-                   annotation_text=f"K-Means++ Baseline ({WCSS_BASE:.2f})",
-                   annotation_font_color=MUTED)
-    fig3.update_layout(**PLOTLY_LAYOUT,
-                       title="WCSS Final per Kombinasi  (biru = SA menang)",
-                       yaxis_title="WCSS Final", height=400)
-    st.plotly_chart(fig3, use_container_width=True)
-
-    # Convergence per alpha (sigma fixed)
-    sigma_fixed = SIGMAS_S[len(SIGMAS_S)//2] if len(SIGMAS_S) > 1 else SIGMAS_S[0]
-    section_header("📈", f"Konvergensi WCSS per α  (σ={sigma_fixed} tetap)")
-    fig4 = go.Figure()
-    for i, a in enumerate(ALPHAS_S):
-        r_a = next((r for r in SENS if r["alpha"]==a and r["sigma"]==sigma_fixed), None)
-        if r_a:
-            fig4.add_trace(go.Scatter(
-                y=r_a["wcss_best_log"], mode="lines",
-                name=f"α={a}  final={r_a['wcss_final']:.2f}",
-                line=dict(color=PAL[i], width=2),
-            ))
-    fig4.add_hline(y=WCSS_BASE, line_dash="dot", line_color="white",
-                   annotation_text="Baseline")
-    fig4.update_layout(**PLOTLY_LAYOUT, title=f"Konvergensi per α (σ={sigma_fixed})",
-                       xaxis_title="Iterasi", yaxis_title="WCSS Terbaik", height=380)
-    st.plotly_chart(fig4, use_container_width=True)
-
-    # Escape count
-    esc_vals = [r["n_escape"] for r in SENS]
-    fig5 = go.Figure(go.Bar(
-        x=labels_b, y=esc_vals,
-        marker_color=[PAL[i//len(SIGMAS_S)%len(PAL)] for i in range(len(SENS))],
-        text=esc_vals, textposition="outside",
-    ))
-    fig5.update_layout(**PLOTLY_LAYOUT, title="Kemampuan SA Keluar Local Minimum (Escape Count)",
-                       yaxis_title="Estimasi Escape", height=360)
-    st.plotly_chart(fig5, use_container_width=True)
-
-
-# ╔══════════════════════════════════════════════════════════════════════════
-#  TAB 8 — PERBANDINGAN
-# ╚══════════════════════════════════════════════════════════════════════════
-with tabs[7]:
-    section_header("⚖️", "Perbandingan Metode")
-
-    km_r_sil = silhouette_score(X3, km_rand.labels_)
-    km_r_db  = davies_bouldin_score(X3, km_rand.labels_)
-    km_r_ch  = calinski_harabasz_score(X3, km_rand.labels_)
-
-    methods_data = {
-        "Metode": ["K-Means Random", "K-Means++", "SA + K-Means (Hybrid)"],
-        "WCSS": [km_rand.inertia_, WCSS_BASE, RES["wcss_final"]],
-        "Silhouette": [km_r_sil, SIL_BASE, RES["sil"]],
-        "Davies-Bouldin": [km_r_db, DB_BASE, RES["db"]],
-        "Calinski-H": [km_r_ch, CH_BASE, RES["ch"]],
-    }
-    df_comp = pd.DataFrame(methods_data)
-
-    c1, c2, c3 = st.columns(3)
-    for col_st, (metric, low, ytitle) in zip([c1,c2,c3], [
-        ("WCSS", True, "WCSS (↓ lebih baik)"),
-        ("Silhouette", False, "Silhouette (↑ lebih baik)"),
-        ("Davies-Bouldin", True, "DB Index (↓ lebih baik)"),
-    ]):
-        vals = df_comp[metric].tolist()
-        best_i = np.argmin(vals) if low else np.argmax(vals)
-        colors_m = [PAL[3], PAL[0], PAL[1]]
-        edges    = ["rgba(0,0,0,0)"]*3
-        edges[best_i] = "white"
-        widths = [0]*3; widths[best_i] = 2
-        fig = go.Figure(go.Bar(
-            x=df_comp["Metode"], y=vals,
-            marker_color=colors_m,
-            marker_line_color=edges,
-            marker_line_width=widths,
-            opacity=0.85,
-            text=[f"{v:.4f}" for v in vals],
-            textposition="outside",
-        ))
-        fig.update_layout(**PLOTLY_LAYOUT, title=ytitle, yaxis_title=metric, height=400)
-        col_st.plotly_chart(fig, use_container_width=True)
-
-    # Delta table
-    imp_wcss_v  = (WCSS_BASE - RES["wcss_final"]) / WCSS_BASE * 100
-    imp_sil_v   = (RES["sil"] - SIL_BASE) / SIL_BASE * 100
-    imp_db_v    = (DB_BASE - RES["db"]) / DB_BASE * 100
-    imp_ch_v    = (RES["ch"] - CH_BASE) / CH_BASE * 100
-
-    section_header("📊", "Delta SA+K-Means vs K-Means++")
-    delta_cols = st.columns(4)
-    for col_st, (label, delta_v, improve_dir) in zip(delta_cols, [
-        ("WCSS Δ%", imp_wcss_v, "pos_good"),
-        ("Silhouette Δ%", imp_sil_v, "pos_good"),
-        ("DB Index Δ%", imp_db_v, "pos_good"),
-        ("Calinski-H Δ%", imp_ch_v, "pos_good"),
-    ]):
-        color = "#26A69A" if delta_v > 0 else "#EF5350"
-        col_st.markdown(f"""
-        <div class="metric-card">
-          <div class="metric-label">{label}</div>
-          <div class="metric-value" style="color:{color}">{delta_v:+.2f}%</div>
-          <div class="metric-delta" style="color:{color}">
-            {'✓ Membaik' if delta_v > 0 else '✗ Memburuk'}
-          </div>
+# ── JALANKAN SA ───────────────────────────────────────────────────────────────
+if 'sa_result' not in st.session_state:
+    with st.spinner("Menginisialisasi analisis..."):
+        st.session_state.sa_result = run_sa_cached(X3, K_input, T0=T0, alpha=alpha,
+                                                     sigma=sigma, max_iter=max_iter)
+        st.session_state.k_used = K_input
+
+if run_btn:
+    with st.spinner("Menjalankan Simulated Annealing..."):
+        progress = st.progress(0)
+        st.session_state.sa_result = run_sa_cached(X3, K_input, T0=T0, alpha=alpha,
+                                                     sigma=sigma, max_iter=max_iter)
+        st.session_state.k_used = K_input
+        progress.progress(100)
+    st.success(f"SA selesai dalam {st.session_state.sa_result['time']:.2f} detik")
+
+RES = st.session_state.sa_result
+K = st.session_state.k_used if 'k_used' in st.session_state else K_OPT
+WCSS_BASE = RES['WCSS_BASE']
+SIL_BASE = silhouette_score(X3, KMeans(n_clusters=K, init='k-means++', n_init=30, random_state=42).fit(X3).labels_)
+DB_BASE = davies_bouldin_score(X3, KMeans(n_clusters=K, init='k-means++', n_init=30, random_state=42).fit(X3).labels_)
+
+df['Cluster'] = RES['labels']
+cluster_ids = sorted(df['Cluster'].unique())
+profile = df.groupby('Cluster')[NUM_COLS].mean().round(2)
+profile['N'] = df.groupby('Cluster').size()
+profile['%'] = (profile['N'] / len(df) * 100).round(1)
+
+# ── KPI CARDS ─────────────────────────────────────────────────────────────────
+imp_wcss = (WCSS_BASE - RES['wcss_final']) / WCSS_BASE * 100
+imp_sil  = (RES['sil'] - SIL_BASE) / SIL_BASE * 100
+
+c1, c2, c3, c4, c5 = st.columns(5)
+kpi_data = [
+    (c1, "DATASET", "200", "Pelanggan Mall", "badge-blue", ""),
+    (c2, "CLUSTER OPTIMAL", f"{K}", "berdasarkan Silhouette", "badge-blue", ""),
+    (c3, "SILHOUETTE SCORE", f"{RES['sil']:.4f}", f"vs baseline {SIL_BASE:.4f}", 
+     "badge-green" if imp_sil >= 0 else "badge-orange", 
+     f"{'↑' if imp_sil >= 0 else '↓'} {abs(imp_sil):.1f}%"),
+    (c4, "WCSS FINAL", f"{RES['wcss_final']:.2f}", f"baseline {WCSS_BASE:.2f}",
+     "badge-green" if imp_wcss >= 0 else "badge-orange",
+     f"{'↑' if imp_wcss >= 0 else '↓'} {abs(imp_wcss):.1f}%"),
+    (c5, "ACCEPTANCE RATE", f"{RES['accept_rate']:.1f}%", 
+     f"{RES['iters']} iterasi SA", "badge-blue", ""),
+]
+for col, label, val, sub, badge_cls, badge_txt in kpi_data:
+    with col:
+        badge_html = f"<div class='metric-badge {badge_cls}'>{badge_txt}</div>" if badge_txt else ""
+        st.markdown(f"""
+        <div class='metric-card'>
+            <div class='metric-label'>{label}</div>
+            <div class='metric-value'>{val}</div>
+            <div class='metric-sub'>{sub}</div>
+            {badge_html}
         </div>
         """, unsafe_allow_html=True)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.dataframe(df_comp.set_index("Metode").style
-                 .highlight_min(subset=["WCSS","Davies-Bouldin"], color="#1e3a2f")
-                 .highlight_max(subset=["Silhouette","Calinski-H"], color="#1e3a2f"),
-                 use_container_width=True)
+st.markdown("<br>", unsafe_allow_html=True)
 
-    # Radar comparison
-    section_header("🕸", "Radar Perbandingan Multi-Metrik")
-    norm_metrics = {}
-    for m in ["WCSS","Silhouette","Davies-Bouldin","Calinski-H"]:
-        col_vals = df_comp[m].values
-        mn, mx = col_vals.min(), col_vals.max()
-        norm_metrics[m] = (col_vals - mn) / (mx - mn + 1e-9)
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB NAVIGASI
+# ══════════════════════════════════════════════════════════════════════════════
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "  📊  Eksplorasi Data  ",
+    "  🔬  Analisis PCA  ",
+    "  🔥  Simulated Annealing  ",
+    "  🎯  Hasil Klasterisasi  ",
+    "  ⚖️  Perbandingan Metode  "
+])
 
-    cats_r = ["WCSS (↓)","Silhouette (↑)","Davies-Bouldin (↓)","Calinski-H (↑)"]
-    fig_r = go.Figure()
-    for i, method in enumerate(df_comp["Metode"]):
-        vals_r = [
-            1 - norm_metrics["WCSS"][i],
-            norm_metrics["Silhouette"][i],
-            1 - norm_metrics["Davies-Bouldin"][i],
-            norm_metrics["Calinski-H"][i],
-        ]
-        vals_r_closed = vals_r + [vals_r[0]]
-        cats_closed_r  = cats_r + [cats_r[0]]
-        fig_r.add_trace(go.Scatterpolar(
-            r=vals_r_closed, theta=cats_closed_r,
-            fill="toself", name=method,
-            line_color=PAL[i%len(PAL)],
-            fillcolor=PAL[i%len(PAL)],
-            opacity=0.4,
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 1 — EDA
+# ══════════════════════════════════════════════════════════════════════════════
+with tab1:
+    col_l, col_r = st.columns([2, 1])
+    with col_l:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Distribusi Fitur Numerik</span>
+            <span class='section-sub'>200 sampel · Mall Customers Dataset</span>
+        </div>""", unsafe_allow_html=True)
+        
+        fig_hist = make_subplots(rows=1, cols=3,
+            subplot_titles=['Usia', 'Pendapatan Tahunan (k$)', 'Spending Score'])
+        
+        for i, col in enumerate(NUM_COLS):
+            fig_hist.add_trace(go.Histogram(
+                x=df[col], nbinsx=20, name=col.split('(')[0].strip(),
+                marker_color=PAL[i], opacity=0.8,
+                hovertemplate=f'<b>{col.split("(")[0].strip()}</b><br>Nilai: %{{x}}<br>Frekuensi: %{{y}}<extra></extra>'
+            ), row=1, col=i+1)
+            fig_hist.add_vline(x=df[col].mean(), line_dash="dash", line_color="white",
+                               line_width=1.5, row=1, col=i+1)
+            fig_hist.add_vline(x=df[col].median(), line_dash="dot", line_color="#FFA726",
+                               line_width=1.5, row=1, col=i+1)
+        
+        fig_hist.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
+        fig_hist.update_annotations(font_size=11, font_color='#A5B4FC')
+        for i in range(1, 4):
+            fig_hist.update_xaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+            fig_hist.update_yaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+        st.plotly_chart(fig_hist, use_container_width=True, config={'displayModeBar': False})
+
+    with col_r:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Distribusi Gender</span>
+        </div>""", unsafe_allow_html=True)
+        
+        gc = df['Genre'].value_counts()
+        fig_pie = go.Figure(go.Pie(
+            labels=gc.index, values=gc.values,
+            hole=0.55, marker_colors=['#AB47BC','#42A5F5'],
+            textinfo='label+percent', textfont_size=11,
+            hovertemplate='<b>%{label}</b><br>Jumlah: %{value}<br>%{percent}<extra></extra>'
         ))
-    fig_r.update_layout(
-        paper_bgcolor=CARD,
-        font=dict(color=FG),
-        polar=dict(
-            bgcolor=CARD,
-            radialaxis=dict(visible=True, range=[0,1], gridcolor=GRID_C, color=MUTED),
-            angularaxis=dict(gridcolor=GRID_C, color=FG),
-        ),
-        title="Radar Multi-Metrik (dinormalisasi, semua ↑ = lebih baik)",
-        height=500,
-    )
-    st.plotly_chart(fig_r, use_container_width=True)
+        fig_pie.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=240, margin=dict(l=10,r=10,t=20,b=10), showlegend=True,
+            legend=dict(orientation='h', y=-0.05, x=0.5, xanchor='center',
+                        font=dict(size=11, color='#C5CBE0')))
+        st.plotly_chart(fig_pie, use_container_width=True, config={'displayModeBar': False})
 
-# ──────────────────────────────────────────────────────────────────────────
-#  FOOTER
-# ──────────────────────────────────────────────────────────────────────────
+    st.markdown("""<div class='section-header' style='margin-top:0.5rem;'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Scatter Plot Hubungan Antar Fitur</span>
+    </div>""", unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns(3)
+    pairs = [
+        (col1, 'Age', 'Spending Score (1-100)', PAL[0]),
+        (col2, 'Annual Income (k$)', 'Spending Score (1-100)', PAL[1]),
+        (col3, 'Age', 'Annual Income (k$)', PAL[2])
+    ]
+    for container, cx, cy, color in pairs:
+        with container:
+            fig_sc = go.Figure(go.Scatter(
+                x=df[cx], y=df[cy], mode='markers',
+                marker=dict(color=color, size=6, opacity=0.6,
+                            line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                text=df['Genre'],
+                hovertemplate=f'<b>{cx.split("(")[0].strip()}</b>: %{{x}}<br>'
+                              f'<b>{cy.split("(")[0].strip()}</b>: %{{y}}<br>'
+                              f'Gender: %{{text}}<extra></extra>'
+            ))
+            fig_sc.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+                height=240, margin=dict(l=45,r=15,t=35,b=35),
+                title=dict(text=f'{cx.split("(")[0].strip()} vs {cy.split("(")[0].strip()}',
+                           font=dict(size=11, color='#C5CBE0'), x=0.01),
+                xaxis=dict(title=cx.split('(')[0].strip(), gridcolor='#1E2235', titlefont=dict(size=10)),
+                yaxis=dict(title=cy.split('(')[0].strip(), gridcolor='#1E2235', titlefont=dict(size=10)))
+            st.plotly_chart(fig_sc, use_container_width=True, config={'displayModeBar': False})
+
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Matriks Korelasi</span>
+    </div>""", unsafe_allow_html=True)
+    
+    corr = df[NUM_COLS].corr()
+    fig_corr = go.Figure(go.Heatmap(
+        z=corr.values, x=['Usia','Pendapatan','Spending'],
+        y=['Usia','Pendapatan','Spending'],
+        colorscale=[[0,'#EF5350'],[0.5,'#131825'],[1,'#26A69A']],
+        zmin=-1, zmax=1, text=corr.values.round(2),
+        texttemplate='%{text}', textfont_size=14,
+        hovertemplate='%{y} × %{x}: %{z:.4f}<extra></extra>'
+    ))
+    fig_corr.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        height=280, margin=dict(l=60,r=60,t=30,b=30), width=400)
+    c_corr, c_stat = st.columns([1, 2])
+    with c_corr:
+        st.plotly_chart(fig_corr, use_container_width=True, config={'displayModeBar': False})
+    with c_stat:
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        st.dataframe(
+            df[NUM_COLS].describe().round(2).rename(columns={
+                'Age':'Usia', 'Annual Income (k$)':'Pendapatan (k$)',
+                'Spending Score (1-100)':'Spending Score'
+            }),
+            use_container_width=True, height=245
+        )
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 2 — PCA
+# ══════════════════════════════════════════════════════════════════════════════
+with tab2:
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Scree Plot — Explained Variance</span>
+        <span class='section-sub'>PC1–PC3 dipilih: {:.2f}% variance tercakup</span>
+    </div>""".format(EV_CUM[N_CLU-1]*100), unsafe_allow_html=True)
+
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        fig_scree = go.Figure()
+        colors_bar = [PAL[0] if i < N_CLU else '#2A2D3E' for i in range(len(EV))]
+        fig_scree.add_trace(go.Bar(
+            x=[f'PC{i+1}' for i in range(len(EV))],
+            y=EV*100, name='Individual', marker_color=colors_bar, opacity=0.9,
+            text=[f'{v:.1f}%' for v in EV*100], textposition='outside', textfont=dict(size=9),
+            hovertemplate='<b>%{x}</b><br>Variance: %{y:.2f}%<extra></extra>'
+        ))
+        fig_scree.add_trace(go.Scatter(
+            x=[f'PC{i+1}' for i in range(len(EV))], y=EV_CUM*100,
+            name='Kumulatif', mode='lines+markers',
+            line=dict(color='#FFA726', width=2.5),
+            marker=dict(size=7, color='#FFA726'),
+            hovertemplate='<b>%{x}</b><br>Kumulatif: %{y:.2f}%<extra></extra>'
+        ))
+        fig_scree.add_hline(y=80, line_dash="dash", line_color="rgba(255,255,255,0.3)",
+                             line_width=1.5, annotation_text="80% threshold",
+                             annotation_font_color="#C5CBE0", annotation_font_size=10)
+        fig_scree.update_layout(**PLOTLY_THEME, height=320,
+            title='Scree Plot — Explained Variance per Komponen',
+            xaxis=dict(gridcolor='#1E2235', linecolor='#2A2D3E'),
+            yaxis=dict(title='Variance (%)', gridcolor='#1E2235', linecolor='#2A2D3E'),
+            legend=dict(orientation='h', y=1.05, x=0.01, font=dict(size=10)))
+        st.plotly_chart(fig_scree, use_container_width=True, config={'displayModeBar': False})
+
+    with col_s2:
+        load_df = pd.DataFrame(pca3.components_.T, index=FEATURES_DISPLAY,
+                                columns=[f'PC{i+1}' for i in range(N_CLU)])
+        fig_heat = go.Figure(go.Heatmap(
+            z=pca3.components_,
+            x=feat_short, y=[f'PC{i+1}' for i in range(N_CLU)],
+            colorscale=[[0,'#EF5350'],[0.5,'#131825'],[1,'#5C6BC0']],
+            zmin=-1, zmax=1,
+            text=pca3.components_.round(3), texttemplate='%{text}', textfont_size=12,
+            hovertemplate='<b>%{y}</b> × <b>%{x}</b>: %{z:.4f}<extra></extra>'
+        ))
+        fig_heat.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=320, title='Heatmap Loading — Kontribusi Fitur per PC',
+            xaxis=dict(side='bottom'), margin=dict(l=60,r=60,t=50,b=40))
+        st.plotly_chart(fig_heat, use_container_width=True, config={'displayModeBar': False})
+
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Biplot — Proyeksi Data & Loading Vector</span>
+    </div>""", unsafe_allow_html=True)
+
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        fig_biplot = go.Figure()
+        fig_biplot.add_trace(go.Scatter(
+            x=X2[:,0], y=X2[:,1], mode='markers',
+            marker=dict(color='#2A3A5C', size=6, opacity=0.5,
+                        line=dict(width=0.3, color='rgba(255,255,255,0.1)')),
+            name='Data', hovertemplate='PC1: %{x:.3f}<br>PC2: %{y:.3f}<extra></extra>'
+        ))
+        for i, feat in enumerate(feat_short):
+            lx = pca2.components_[0,i]*2.8
+            ly = pca2.components_[1,i]*2.8
+            fig_biplot.add_annotation(
+                x=lx, y=ly, ax=0, ay=0,
+                arrowhead=3, arrowwidth=2.5, arrowcolor=PAL[i],
+                text=f"<b>{feat}</b>", font=dict(color=PAL[i], size=11),
+                xanchor='center', showarrow=True
+            )
+        fig_biplot.update_layout(**PLOTLY_THEME, height=340,
+            title=f'Biplot PC1 ({EV[0]*100:.1f}%) vs PC2 ({EV[1]*100:.1f}%)',
+            xaxis=dict(title=f'PC1 ({EV[0]*100:.1f}%)', gridcolor='#1E2235', zeroline=True, zerolinecolor='#2A2D3E'),
+            yaxis=dict(title=f'PC2 ({EV[1]*100:.1f}%)', gridcolor='#1E2235', zeroline=True, zerolinecolor='#2A2D3E'),
+            showlegend=False)
+        st.plotly_chart(fig_biplot, use_container_width=True, config={'displayModeBar': False})
+
+    with col_b2:
+        fig_bar_load = go.Figure()
+        for i, feat in enumerate(feat_short):
+            fig_bar_load.add_trace(go.Bar(
+                name=feat, x=[f'PC{j+1}' for j in range(N_CLU)],
+                y=pca3.components_[:, i], marker_color=PAL[i], opacity=0.85,
+                hovertemplate=f'<b>{feat}</b><br>%{{x}}: %{{y:.4f}}<extra></extra>'
+            ))
+        fig_bar_load.update_layout(**PLOTLY_THEME, height=340, barmode='group',
+            title='Nilai Loading per Komponen Utama',
+            xaxis=dict(gridcolor='#1E2235', linecolor='#2A2D3E'),
+            yaxis=dict(title='Loading Value', gridcolor='#1E2235', linecolor='#2A2D3E',
+                       zeroline=True, zerolinecolor='#2A2D3E'),
+            legend=dict(orientation='h', y=1.05, x=0, font=dict(size=10)))
+        st.plotly_chart(fig_bar_load, use_container_width=True, config={'displayModeBar': False})
+
+    st.markdown("""<div class='info-box'>
+        <b>Interpretasi PCA:</b> PC1 (%.1f%%) didominasi oleh hubungan terbalik antara Usia dan Spending Score.
+        PC2 (%.1f%%) mencerminkan tingkat Annual Income. PC3 (%.1f%%) membedakan berdasarkan Genre.
+        Ketiga PC bersama mencakup <b>%.2f%%</b> total variance.
+    </div>""" % (EV[0]*100, EV[1]*100, EV[2]*100, EV_CUM[2]*100), unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — SIMULATED ANNEALING
+# ══════════════════════════════════════════════════════════════════════════════
+with tab3:
+    hist_df = RES['hist']
+    iters_x = hist_df['iter'].values
+
+    col_sa1, col_sa2 = st.columns(2)
+    
+    with col_sa1:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Konvergensi WCSS</span>
+        </div>""", unsafe_allow_html=True)
+        
+        fig_conv = go.Figure()
+        fig_conv.add_trace(go.Scatter(
+            x=iters_x, y=hist_df['wcss_curr'], mode='lines',
+            name='WCSS Saat Ini', line=dict(color='#3D4F6B', width=1),
+            opacity=0.5, hovertemplate='Iterasi %{x}<br>WCSS: %{y:.4f}<extra></extra>'
+        ))
+        # Smoothed
+        wcss_sm = pd.Series(RES['wcss_log']).rolling(15, min_periods=1).mean()
+        fig_conv.add_trace(go.Scatter(
+            x=list(range(len(wcss_sm))), y=wcss_sm.values, mode='lines',
+            name='Moving Avg (w=15)', line=dict(color=PAL[1], width=2),
+            hovertemplate='Iterasi %{x}<br>MA WCSS: %{y:.4f}<extra></extra>'
+        ))
+        fig_conv.add_trace(go.Scatter(
+            x=iters_x, y=hist_df['wcss_best'], mode='lines',
+            name='WCSS Terbaik', line=dict(color='#FFA726', width=2.5),
+            hovertemplate='Iterasi %{x}<br>Best WCSS: %{y:.4f}<extra></extra>'
+        ))
+        fig_conv.add_hline(y=WCSS_BASE, line_dash="dash", line_color=PAL[2],
+                            line_width=2, annotation_text=f"Baseline K-Means++ ({WCSS_BASE:.2f})",
+                            annotation_font_color=PAL[2], annotation_font_size=9)
+        fig_conv.add_hline(y=RES['wcss_final'], line_dash="dot", line_color=PAL[1],
+                            line_width=1.5, annotation_text=f"SA Final ({RES['wcss_final']:.2f})",
+                            annotation_font_color=PAL[1], annotation_font_size=9)
+        fig_conv.update_layout(**PLOTLY_THEME, height=320,
+            title='Konvergensi WCSS Simulated Annealing',
+            xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
+            yaxis=dict(title='WCSS', gridcolor='#1E2235'),
+            legend=dict(orientation='h', y=-0.2, x=0, font=dict(size=9)))
+        st.plotly_chart(fig_conv, use_container_width=True, config={'displayModeBar': False})
+
+    with col_sa2:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Cooling Schedule</span>
+        </div>""", unsafe_allow_html=True)
+        
+        fig_cool = go.Figure()
+        t_vals = RES['t_log']
+        n = len(t_vals)
+        fig_cool.add_trace(go.Scatter(
+            x=list(range(n)), y=t_vals, mode='lines', fill='tozeroy',
+            name='Suhu T', line=dict(color=PAL[2], width=2),
+            fillcolor='rgba(239,83,80,0.08)',
+            hovertemplate='Iterasi %{x}<br>T: %{y:.6f}<extra></extra>'
+        ))
+        # Fase annotations
+        for start, end, label, color in [(0, int(n*0.2), 'Eksplorasi', PAL[2]),
+                                          (int(n*0.2), int(n*0.65), 'Transisi', '#FFA726'),
+                                          (int(n*0.65), n, 'Eksploitasi', PAL[1])]:
+            fig_cool.add_vrect(x0=start, x1=end, fillcolor=color, opacity=0.05, line_width=0)
+        fig_cool.update_layout(**PLOTLY_THEME, height=320,
+            title=f'Cooling Schedule (α={alpha})',
+            xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
+            yaxis=dict(title='Suhu T (log scale)', type='log', gridcolor='#1E2235'),
+            showlegend=False)
+        st.plotly_chart(fig_cool, use_container_width=True, config={'displayModeBar': False})
+
+    col_sa3, col_sa4 = st.columns(2)
+    
+    with col_sa3:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Distribusi ΔE</span>
+        </div>""", unsafe_allow_html=True)
+        
+        d_neg = hist_df['delta'][hist_df['delta'] < 0]
+        d_pos = hist_df['delta'][hist_df['delta'] > 0]
+        fig_delta = go.Figure()
+        fig_delta.add_trace(go.Histogram(
+            x=d_neg, nbinsx=40, name=f'ΔE<0: Accept ({len(d_neg)})',
+            marker_color=PAL[1], opacity=0.85,
+            hovertemplate='ΔE: %{x:.3f}<br>Count: %{y}<extra></extra>'
+        ))
+        fig_delta.add_trace(go.Histogram(
+            x=d_pos, nbinsx=40, name=f'ΔE>0: Metropolis ({len(d_pos)})',
+            marker_color=PAL[2], opacity=0.85,
+            hovertemplate='ΔE: %{x:.3f}<br>Count: %{y}<extra></extra>'
+        ))
+        fig_delta.add_vline(x=0, line_color="rgba(255,255,255,0.5)", line_width=1.5)
+        fig_delta.update_layout(**PLOTLY_THEME, height=280, barmode='overlay',
+            title='Distribusi ΔE per Iterasi',
+            xaxis=dict(title='ΔE (Perubahan WCSS)', gridcolor='#1E2235'),
+            yaxis=dict(title='Frekuensi', gridcolor='#1E2235'),
+            legend=dict(orientation='h', y=-0.25, x=0, font=dict(size=9)))
+        st.plotly_chart(fig_delta, use_container_width=True, config={'displayModeBar': False})
+
+    with col_sa4:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Acceptance Rate per Blok</span>
+        </div>""", unsafe_allow_html=True)
+        
+        block = max(20, len(hist_df)//25)
+        acc_blk, centers_blk = [], []
+        for i in range(0, len(hist_df), block):
+            chunk = hist_df.iloc[i:i+block]
+            n_acc = chunk['status'].str.startswith('Accept').sum()
+            acc_blk.append(n_acc / len(chunk) * 100)
+            centers_blk.append(i + block/2)
+        
+        fig_acc = go.Figure()
+        fig_acc.add_trace(go.Bar(
+            x=centers_blk, y=acc_blk, name='Acceptance Rate',
+            marker_color=PAL[0], opacity=0.8,
+            hovertemplate='Iterasi %{x:.0f}<br>Rate: %{y:.1f}%<extra></extra>'
+        ))
+        fig_acc.add_hline(y=50, line_dash="dash", line_color="rgba(255,255,255,0.3)", line_width=1)
+        fig_acc.update_layout(**PLOTLY_THEME, height=280,
+            title='Acceptance Rate per Blok Iterasi',
+            xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
+            yaxis=dict(title='Rate (%)', range=[0,105], gridcolor='#1E2235'))
+        st.plotly_chart(fig_acc, use_container_width=True, config={'displayModeBar': False})
+
+    # Ringkasan SA
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Ringkasan Simulated Annealing</span>
+    </div>""", unsafe_allow_html=True)
+    
+    total_moves = RES['n_better'] + RES['n_metro'] + RES['n_reject']
+    sa_metrics = {
+        'Total Iterasi': RES['iters'],
+        'Waktu (detik)': f"{RES['time']:.3f}",
+        'Accept ΔE<0': f"{RES['n_better']} ({RES['n_better']/total_moves*100:.1f}%)",
+        'Accept Metropolis': f"{RES['n_metro']} ({RES['n_metro']/total_moves*100:.1f}%)",
+        'Reject': f"{RES['n_reject']} ({RES['n_reject']/total_moves*100:.1f}%)",
+        'Escape Local Min': RES['n_escape'],
+        'WCSS Inisialisasi': f"{RES['wcss_init']:.4f}",
+        'WCSS Terbaik SA': f"{RES['wcss_best_sa']:.4f}",
+        'WCSS Final': f"{RES['wcss_final']:.4f}",
+    }
+    cols_sa = st.columns(3)
+    items = list(sa_metrics.items())
+    for idx, (k, v) in enumerate(items):
+        with cols_sa[idx % 3]:
+            st.markdown(f"""
+            <div style='background:#131825; border:1px solid #1E2235; border-radius:8px;
+                        padding:0.7rem 1rem; margin-bottom:0.5rem;'>
+                <div style='font-size:0.72rem; color:#5C6A8A; font-weight:600;
+                            text-transform:uppercase; letter-spacing:0.06em;'>{k}</div>
+                <div style='font-size:1.05rem; font-weight:600; color:#C5CBE0; margin-top:0.2rem;'>{v}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — HASIL CLUSTERING
+# ══════════════════════════════════════════════════════════════════════════════
+with tab4:
+    # K optimal
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Pemilihan K Optimal</span>
+    </div>""", unsafe_allow_html=True)
+    
+    kl = list(df_k.index)
+    fig_k = make_subplots(rows=1, cols=4, subplot_titles=['WCSS (↓)','Silhouette (↑)','Davies-Bouldin (↓)','Calinski-H (↑)'])
+    metrics_k = [('WCSS', PAL[0], True), ('Silhouette', PAL[1], False),
+                 ('Davies-Bouldin', PAL[2], True), ('Calinski-H', PAL[3], False)]
+    for i, (m, color, low) in enumerate(metrics_k):
+        vals = df_k[m].tolist()
+        opt_i = np.argmin(vals) if low else np.argmax(vals)
+        fig_k.add_trace(go.Scatter(
+            x=kl, y=vals, mode='lines+markers', name=m,
+            line=dict(color=color, width=2.2),
+            marker=dict(size=[10 if j == opt_i else 5 for j in range(len(kl))],
+                        color=[color]*len(kl),
+                        line=dict(width=[2 if j == opt_i else 0 for j in range(len(kl))],
+                                  color='white')),
+            hovertemplate=f'K=%{{x}}<br>{m}: %{{y:.4f}}<extra></extra>'
+        ), row=1, col=i+1)
+        fig_k.add_vline(x=kl[opt_i], line_dash="dot", line_color='rgba(255,255,255,0.25)',
+                         line_width=1.2, row=1, col=i+1)
+    fig_k.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+        height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
+    fig_k.update_annotations(font_size=11, font_color='#A5B4FC')
+    for i in range(1, 5):
+        fig_k.update_xaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+        fig_k.update_yaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+    st.plotly_chart(fig_k, use_container_width=True, config={'displayModeBar': False})
+
+    # Scatter cluster 2D & 3D
+    cl2, cl3 = st.columns(2)
+    cents_2d = pca2.transform(pca3.inverse_transform(RES['centers']))
+    
+    with cl2:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Proyeksi Cluster 2D (PC1 vs PC2)</span>
+        </div>""", unsafe_allow_html=True)
+        fig_2d = go.Figure()
+        for c in cluster_ids:
+            m = RES['labels'] == c
+            fig_2d.add_trace(go.Scatter(
+                x=X2[m,0], y=X2[m,1], mode='markers',
+                name=f'Cluster {c} (n={m.sum()})',
+                marker=dict(color=PAL[c%len(PAL)], size=7, opacity=0.8,
+                            line=dict(width=0.5, color='rgba(255,255,255,0.2)')),
+                hovertemplate=f'<b>Cluster {c}</b><br>PC1: %{{x:.3f}}<br>PC2: %{{y:.3f}}<extra></extra>'
+            ))
+        fig_2d.add_trace(go.Scatter(
+            x=cents_2d[:,0], y=cents_2d[:,1], mode='markers',
+            name='Centroid', marker=dict(symbol='star', size=16, color='white',
+                                          line=dict(width=1.5, color='black')),
+            hovertemplate='<b>Centroid</b><br>PC1: %{x:.3f}<br>PC2: %{y:.3f}<extra></extra>'
+        ))
+        fig_2d.update_layout(**PLOTLY_THEME, height=350,
+            xaxis=dict(title=f'PC1 ({EV[0]*100:.1f}%)', gridcolor='#1E2235'),
+            yaxis=dict(title=f'PC2 ({EV[1]*100:.1f}%)', gridcolor='#1E2235'),
+            legend=dict(font=dict(size=10), y=0, x=0))
+        st.plotly_chart(fig_2d, use_container_width=True, config={'displayModeBar': False})
+
+    with cl3:
+        st.markdown("""<div class='section-header'>
+            <div class='section-dot'></div>
+            <span class='section-title'>Proyeksi Cluster 3D (PC1-PC2-PC3)</span>
+        </div>""", unsafe_allow_html=True)
+        fig_3d = go.Figure()
+        for c in cluster_ids:
+            m = RES['labels'] == c
+            fig_3d.add_trace(go.Scatter3d(
+                x=X3[m,0], y=X3[m,1], z=X3[m,2],
+                mode='markers', name=f'Cluster {c}',
+                marker=dict(color=PAL[c%len(PAL)], size=4, opacity=0.75,
+                            line=dict(width=0.3, color='rgba(255,255,255,0.1)')),
+                hovertemplate=f'<b>Cluster {c}</b><br>PC1: %{{x:.3f}}<br>PC2: %{{y:.3f}}<br>PC3: %{{z:.3f}}<extra></extra>'
+            ))
+        fig_3d.add_trace(go.Scatter3d(
+            x=RES['centers'][:,0], y=RES['centers'][:,1], z=RES['centers'][:,2],
+            mode='markers', name='Centroid',
+            marker=dict(symbol='diamond', size=8, color='white', opacity=1)
+        ))
+        fig_3d.update_layout(
+            paper_bgcolor='#0A0C14', font=dict(color='#C5CBE0', family='Inter'),
+            height=350, margin=dict(l=0,r=0,t=20,b=0),
+            scene=dict(
+                bgcolor='#131825',
+                xaxis=dict(title='PC1', gridcolor='#2A2D3E', backgroundcolor='#131825', color='#7986CB'),
+                yaxis=dict(title='PC2', gridcolor='#2A2D3E', backgroundcolor='#131825', color='#7986CB'),
+                zaxis=dict(title='PC3', gridcolor='#2A2D3E', backgroundcolor='#131825', color='#7986CB')
+            ),
+            legend=dict(font=dict(size=10), bgcolor='rgba(19,24,37,0.8)')
+        )
+        st.plotly_chart(fig_3d, use_container_width=True, config={'displayModeBar': False})
+
+    # Profil Cluster
+    st.markdown("""<div class='section-header' style='margin-top:0.5rem;'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Profil & Interpretasi Cluster</span>
+    </div>""", unsafe_allow_html=True)
+
+    pc1, pc2, pc3 = st.columns([1.5, 1.5, 1])
+    
+    with pc1:
+        fig_bar_prof = go.Figure()
+        for i, col in enumerate(NUM_COLS):
+            means = [profile.loc[c, col] for c in cluster_ids]
+            fig_bar_prof.add_trace(go.Bar(
+                name=col.replace(' (k$)','').replace(' (1-100)',''),
+                x=[f'Cluster {c}' for c in cluster_ids], y=means,
+                marker_color=PAL[i], opacity=0.85,
+                hovertemplate=f'<b>%{{x}}</b><br>{col}: %{{y:.2f}}<extra></extra>'
+            ))
+        fig_bar_prof.update_layout(**PLOTLY_THEME, height=280, barmode='group',
+            title='Rata-rata Fitur per Cluster',
+            xaxis=dict(gridcolor='#1E2235'), yaxis=dict(title='Nilai Rata-rata', gridcolor='#1E2235'),
+            legend=dict(orientation='h', y=-0.25, x=0, font=dict(size=10)))
+        st.plotly_chart(fig_bar_prof, use_container_width=True, config={'displayModeBar': False})
+    
+    with pc2:
+        fig_viol = make_subplots(rows=1, cols=3,
+            subplot_titles=['Usia','Pendapatan','Spending'])
+        for i, col in enumerate(NUM_COLS):
+            for c in cluster_ids:
+                data_c = df[df['Cluster']==c][col].values
+                fig_viol.add_trace(go.Violin(
+                    y=data_c, x=[f'C{c}']*len(data_c),
+                    name=f'C{c}', fillcolor=PAL[c%len(PAL)],
+                    opacity=0.75, line_color='rgba(255,255,255,0.2)',
+                    meanline_visible=True, showlegend=(i==0),
+                    hovertemplate=f'Cluster {c}<br>{col}: %{{y:.1f}}<extra></extra>'
+                ), row=1, col=i+1)
+        fig_viol.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=280, showlegend=False, margin=dict(l=40,r=20,t=40,b=30))
+        fig_viol.update_annotations(font_size=10, font_color='#A5B4FC')
+        for i in range(1, 4):
+            fig_viol.update_xaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+            fig_viol.update_yaxes(gridcolor='#1E2235', linecolor='#2A2D3E', row=1, col=i)
+        st.plotly_chart(fig_viol, use_container_width=True, config={'displayModeBar': False})
+
+    with pc3:
+        # Radar chart interaktif
+        cats = ['Usia','Pendapatan','Spending']
+        rd = profile[NUM_COLS].copy()
+        for col in rd.columns:
+            rd[col] = (rd[col]-rd[col].min())/(rd[col].max()-rd[col].min()+1e-9)
+        
+        fig_radar = go.Figure()
+        for c in cluster_ids:
+            vals_r = rd.loc[c].tolist()
+            vals_r += vals_r[:1]
+            fig_radar.add_trace(go.Scatterpolar(
+                r=vals_r, theta=cats+[cats[0]], fill='toself',
+                name=f'Cluster {c}', line=dict(color=PAL[c%len(PAL)], width=2),
+                fillcolor=f'rgba({",".join(str(int(PAL[c%len(PAL)].lstrip("#")[i:i+2], 16)) for i in (0,2,4))},0.15)',
+                hovertemplate=f'<b>Cluster {c}</b><br>%{{theta}}: %{{r:.3f}}<extra></extra>'
+            ))
+        fig_radar.update_layout(
+            paper_bgcolor='#0A0C14', plot_bgcolor='#131825',
+            font=dict(color='#C5CBE0', family='Inter'),
+            height=280, margin=dict(l=20,r=20,t=40,b=20),
+            polar=dict(
+                bgcolor='#131825',
+                radialaxis=dict(visible=True, range=[0,1], gridcolor='#2A2D3E', color='#5C6A8A'),
+                angularaxis=dict(gridcolor='#2A2D3E', color='#A5B4FC')
+            ),
+            legend=dict(font=dict(size=10), bgcolor='rgba(19,24,37,0.8)'),
+            title=dict(text='Radar Chart Cluster', font=dict(size=12, color='#C5CBE0'), x=0.01)
+        )
+        st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
+
+    # Tabel profil
+    profile_display = profile.copy()
+    profile_display.columns = ['Usia Rata-rata','Pendapatan (k$)','Spending Score','Jumlah','Proporsi (%)']
+    profile_display.index = [f'Cluster {i}' for i in profile_display.index]
+    
+    # Interpretasi
+    st.markdown("**Interpretasi Segmen**")
+    seg_cols = st.columns(K)
+    for idx, c in enumerate(cluster_ids):
+        r = profile.loc[c]
+        inc = 'Tinggi' if r['Annual Income (k$)'] > 65 else ('Sedang' if r['Annual Income (k$)'] > 42 else 'Rendah')
+        sco = 'Tinggi' if r['Spending Score (1-100)'] > 60 else ('Sedang' if r['Spending Score (1-100)'] > 40 else 'Rendah')
+        age_lbl = 'Tua' if r['Age'] > 50 else ('Muda' if r['Age'] < 30 else 'Dewasa')
+        color_hex = PAL[c%len(PAL)]
+        with seg_cols[idx]:
+            st.markdown(f"""
+            <div style='background:#131825; border:1px solid #1E2235; border-top:2px solid {color_hex};
+                        border-radius:10px; padding:1rem; text-align:center;'>
+                <div style='font-size:1.2rem; font-weight:700; color:{color_hex};'>Cluster {c}</div>
+                <div style='font-size:1.4rem; font-weight:700; color:#E8EAF6; margin:0.3rem 0;'>
+                    {int(r["N"])} <span style='font-size:0.85rem; color:#5C6A8A; font-weight:400;'>pelanggan</span>
+                </div>
+                <div style='font-size:0.78rem; color:#7986CB; margin-bottom:0.5rem;'>{r["%"]:.1f}% dari total</div>
+                <div style='background:#0A0C14; border-radius:6px; padding:0.6rem; text-align:left; font-size:0.8rem;'>
+                    <div style='color:#C5CBE0; margin-bottom:0.3rem;'>
+                        📅 Usia rata-rata: <b style='color:#E8EAF6;'>{r["Age"]:.1f} th</b> ({age_lbl})
+                    </div>
+                    <div style='color:#C5CBE0; margin-bottom:0.3rem;'>
+                        💰 Pendapatan: <b style='color:#E8EAF6;'>{r["Annual Income (k$)"]:.1f}k$</b> ({inc})
+                    </div>
+                    <div style='color:#C5CBE0;'>
+                        🛒 Spending: <b style='color:#E8EAF6;'>{r["Spending Score (1-100)"]:.1f}/100</b> ({sco})
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — PERBANDINGAN METODE
+# ══════════════════════════════════════════════════════════════════════════════
+with tab5:
+    km_rand = KMeans(n_clusters=K, init='random', n_init=30, random_state=42).fit(X3)
+    km_kpp  = KMeans(n_clusters=K, init='k-means++', n_init=30, random_state=42).fit(X3)
+    
+    km_r_wcss = km_rand.inertia_
+    km_r_sil  = silhouette_score(X3, km_rand.labels_)
+    km_r_db   = davies_bouldin_score(X3, km_rand.labels_)
+    km_r_ch   = calinski_harabasz_score(X3, km_rand.labels_)
+    
+    methods_data = {
+        'Metode': ['K-Means Random', 'K-Means++', 'SA + K-Means (Hybrid)'],
+        'WCSS': [km_r_wcss, WCSS_BASE, RES['wcss_final']],
+        'Silhouette': [km_r_sil, SIL_BASE, RES['sil']],
+        'Davies-Bouldin': [km_r_db, DB_BASE, RES['db']],
+        'Calinski-H': [km_r_ch, silhouette_score(X3, km_kpp.labels_)*100, RES['ch']]
+    }
+    
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Perbandingan Kinerja Metode</span>
+    </div>""", unsafe_allow_html=True)
+    
+    m_colors = [PAL[3], PAL[0], PAL[1]]
+    comp1, comp2, comp3 = st.columns(3)
+    
+    for container, metric, lower_better in [(comp1, 'WCSS', True),
+                                             (comp2, 'Silhouette', False),
+                                             (comp3, 'Davies-Bouldin', True)]:
+        with container:
+            vals_m = [km_r_wcss if metric=='WCSS' else (km_r_sil if metric=='Silhouette' else km_r_db),
+                      WCSS_BASE if metric=='WCSS' else (SIL_BASE if metric=='Silhouette' else DB_BASE),
+                      RES['wcss_final'] if metric=='WCSS' else (RES['sil'] if metric=='Silhouette' else RES['db'])]
+            best_i = np.argmin(vals_m) if lower_better else np.argmax(vals_m)
+            border_widths = [2.5 if i == best_i else 0.5 for i in range(3)]
+            
+            fig_comp = go.Figure(go.Bar(
+                x=['K-Means\nRandom','K-Means\n++','SA+K-Means'],
+                y=vals_m, marker_color=m_colors, opacity=0.85,
+                text=[f'{v:.4f}' for v in vals_m], textposition='outside', textfont=dict(size=10),
+                marker_line_width=border_widths, marker_line_color='white',
+                hovertemplate='<b>%{x}</b><br>' + metric + ': %{y:.4f}<extra></extra>'
+            ))
+            arrow = '↓' if lower_better else '↑'
+            fig_comp.update_layout(**PLOTLY_THEME, height=280,
+                title=f'{metric} ({arrow} lebih baik)',
+                xaxis=dict(gridcolor='#1E2235'),
+                yaxis=dict(title=metric, gridcolor='#1E2235'),
+                showlegend=False)
+            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False})
+
+    # Summary table
+    st.markdown("""<div class='section-header'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Tabel Perbandingan Lengkap</span>
+    </div>""", unsafe_allow_html=True)
+    
+    imp_wcss_v = (WCSS_BASE - RES['wcss_final']) / WCSS_BASE * 100
+    imp_sil_v  = (RES['sil'] - SIL_BASE) / SIL_BASE * 100
+    imp_db_v   = (DB_BASE - RES['db']) / DB_BASE * 100
+    
+    summary_df = pd.DataFrame({
+        'Metode': ['K-Means Random Init', 'K-Means++ Init', 'SA + K-Means (Hybrid)'],
+        'WCSS': [f'{km_r_wcss:.4f}', f'{WCSS_BASE:.4f}', f'{RES["wcss_final"]:.4f}'],
+        'Silhouette ↑': [f'{km_r_sil:.4f}', f'{SIL_BASE:.4f}', f'{RES["sil"]:.4f}'],
+        'Davies-Bouldin ↓': [f'{km_r_db:.4f}', f'{DB_BASE:.4f}', f'{RES["db"]:.4f}'],
+        'Calinski-H ↑': [f'{km_r_ch:.2f}', f'{calinski_harabasz_score(X3,km_kpp.labels_):.2f}', f'{RES["ch"]:.2f}'],
+        'Ket.': ['—', '← Baseline', '✓ SA Hybrid']
+    })
+    st.dataframe(summary_df, use_container_width=True, hide_index=True, height=130)
+    
+    # Delta perbaikan SA
+    col_imp1, col_imp2, col_imp3 = st.columns(3)
+    for container, label, val, better in [
+        (col_imp1, 'Perbaikan WCSS vs K-Means++', imp_wcss_v, imp_wcss_v > 0),
+        (col_imp2, 'Perbaikan Silhouette vs K-Means++', imp_sil_v, imp_sil_v > 0),
+        (col_imp3, 'Perbaikan Davies-Bouldin vs K-Means++', imp_db_v, imp_db_v > 0),
+    ]:
+        with container:
+            color = '#4ade80' if better else '#f87171'
+            icon = '↑ Membaik' if better else '↓ Memburuk'
+            st.markdown(f"""
+            <div style='background:#131825; border:1px solid #1E2235; border-radius:10px;
+                        padding:1rem; text-align:center;'>
+                <div style='font-size:0.72rem; color:#5C6A8A; text-transform:uppercase;
+                            letter-spacing:0.06em; margin-bottom:0.4rem;'>{label}</div>
+                <div style='font-size:1.6rem; font-weight:700; color:{color};'>
+                    {'+' if val > 0 else ''}{val:.2f}%
+                </div>
+                <div style='font-size:0.78rem; color:{color}; opacity:0.7; margin-top:0.2rem;'>{icon}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Sensitivitas
+    st.markdown("""<div class='section-header' style='margin-top:1.5rem;'>
+        <div class='section-dot'></div>
+        <span class='section-title'>Analisis Sensitivitas Parameter SA (α × σ)</span>
+        <span class='section-sub'>9 kombinasi · Fixed T₀=100, MaxIter=600</span>
+    </div>""", unsafe_allow_html=True)
+
+    with st.spinner("Menghitung sensitivitas..."):
+        ALPHAS = [0.85, 0.92, 0.97]
+        SIGMAS = [0.3, 0.5, 0.8]
+        
+        @st.cache_data
+        def compute_sensitivity(K_val, _X3=None):
+            SENS = []
+            for a, s in itertools.product(ALPHAS, SIGMAS):
+                r = run_sa_cached(X3, K_val, T0=100.0, alpha=a, T_min=1e-3,
+                                   max_iter=600, sigma=s, seed=42)
+                r.update({'alpha': a, 'sigma': s})
+                SENS.append(r)
+            return SENS
+        
+        SENS = compute_sensitivity(K)
+
+    heat_wcss = np.array([[r['wcss_final'] for r in SENS if r['alpha'] == a] for a in ALPHAS])
+    heat_sil  = np.array([[r['sil']        for r in SENS if r['alpha'] == a] for a in ALPHAS])
+    
+    sh1, sh2 = st.columns(2)
+    with sh1:
+        fig_hw = go.Figure(go.Heatmap(
+            z=heat_wcss, x=[f'σ={s}' for s in SIGMAS], y=[f'α={a}' for a in ALPHAS],
+            colorscale=[[0,'#26A69A'],[0.5,'#131825'],[1,'#EF5350']],
+            text=[[f'{v:.3f}\n{"✓" if v < WCSS_BASE else "✗"}' for v in row] for row in heat_wcss],
+            texttemplate='%{text}', textfont_size=12,
+            hovertemplate='<b>%{y}, %{x}</b><br>WCSS: %{z:.4f}<extra></extra>'
+        ))
+        fig_hw.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=260, title=f'Heatmap WCSS Final: α × σ (baseline={WCSS_BASE:.3f})',
+            margin=dict(l=60,r=60,t=50,b=40),
+            xaxis=dict(side='bottom'), yaxis=dict(side='left'))
+        st.plotly_chart(fig_hw, use_container_width=True, config={'displayModeBar': False})
+
+    with sh2:
+        fig_hs = go.Figure(go.Heatmap(
+            z=heat_sil, x=[f'σ={s}' for s in SIGMAS], y=[f'α={a}' for a in ALPHAS],
+            colorscale=[[0,'#131825'],[0.5,'#5C6BC0'],[1,'#26A69A']],
+            text=[[f'{v:.4f}' for v in row] for row in heat_sil],
+            texttemplate='%{text}', textfont_size=12,
+            hovertemplate='<b>%{y}, %{x}</b><br>Silhouette: %{z:.4f}<extra></extra>'
+        ))
+        fig_hs.update_layout(**{k: v for k, v in PLOTLY_THEME.items() if k != 'xaxis' and k != 'yaxis'},
+            height=260, title='Heatmap Silhouette: α × σ (↑ terbaik)',
+            margin=dict(l=60,r=60,t=50,b=40),
+            xaxis=dict(side='bottom'))
+        st.plotly_chart(fig_hs, use_container_width=True, config={'displayModeBar': False})
+
+    best_s = min(SENS, key=lambda x: x['wcss_final'])
+    st.markdown(f"""
+    <div class='success-box'>
+        <b>Kombinasi Parameter Terbaik:</b> α = {best_s['alpha']}, σ = {best_s['sigma']} — 
+        WCSS Final: <b>{best_s['wcss_final']:.4f}</b> · 
+        Silhouette: <b>{best_s['sil']:.4f}</b> · 
+        Escape local minimum: <b>{best_s['n_escape']} kali</b>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ── FOOTER ────────────────────────────────────────────────────────────────────
+st.markdown("---")
 st.markdown("""
-<hr style='border-color:#2C2F3E;margin:32px 0 16px'>
-<div style='text-align:center;color:#7986CB;font-size:12px;padding-bottom:16px'>
-  Mall Customer Segmentation Dashboard  ·  PCA + Simulated Annealing + K-Means  ·  Built with Streamlit & Plotly
+<div style='text-align:center; color:#3A4260; font-size:0.78rem; padding:0.5rem 0 1rem;'>
+    Mall Customer Segmentation Dashboard &nbsp;·&nbsp; PCA + Simulated Annealing + K-Means
+    &nbsp;·&nbsp; 200 samples · 4 features
 </div>
 """, unsafe_allow_html=True)
