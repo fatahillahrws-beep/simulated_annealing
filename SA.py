@@ -161,7 +161,18 @@ st.markdown("""
     }
     
     /* Hide Streamlit branding */
-    #MainMenu, footer, header { visibility: hidden; }
+    #MainMenu, footer { visibility: hidden; }
+    header { visibility: hidden; }
+    /* Preserve sidebar toggle button */
+    [data-testid="stHeader"] button,
+    [data-testid="collapsedControl"],
+    button[kind="header"],
+    button[title="Open sidebar"],
+    button[aria-label="Open sidebar"],
+    button[aria-label="Close sidebar"] {
+        visibility: visible !important;
+        pointer-events: auto !important;
+    }
     .block-container { padding-top: 1rem; padding-bottom: 2rem; }
 </style>
 """, unsafe_allow_html=True)
