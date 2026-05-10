@@ -744,10 +744,11 @@ with tab3:
                             line_width=1.5, annotation_text=f"SA Final ({RES['wcss_final']:.2f})",
                             annotation_font_color=PAL[1], annotation_font_size=9)
         fig_conv.update_layout(**SUBPLOT_THEME, height=320,
-            title='Konvergensi WCSS Simulated Annealing',
+            title=dict(text='Konvergensi WCSS Simulated Annealing', font=dict(size=13), y=0.97),
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
             yaxis=dict(title='WCSS', gridcolor='#1E2235'),
-            legend=dict(orientation='h', y=-0.2, x=0, font=dict(size=9)))
+            legend=dict(orientation='h', y=-0.18, x=0, font=dict(size=9)),
+            margin=dict(l=50, r=20, t=45, b=70))
         st.plotly_chart(fig_conv, use_container_width=True, config={'displayModeBar': False})
 
     with col_sa2:
@@ -799,11 +800,12 @@ with tab3:
             hovertemplate='ΔE: %{x:.3f}<br>Count: %{y}<extra></extra>'
         ))
         fig_delta.add_vline(x=0, line_color="rgba(255,255,255,0.5)", line_width=1.5)
-        fig_delta.update_layout(**SUBPLOT_THEME, height=280, barmode='overlay',
-            title='Distribusi ΔE per Iterasi',
+        fig_delta.update_layout(**SUBPLOT_THEME, height=320, barmode='overlay',
+            title=dict(text='Distribusi ΔE per Iterasi', font=dict(size=13), y=0.97),
             xaxis=dict(title='ΔE (Perubahan WCSS)', gridcolor='#1E2235'),
             yaxis=dict(title='Frekuensi', gridcolor='#1E2235'),
-            legend=dict(orientation='h', y=-0.25, x=0, font=dict(size=9)))
+            legend=dict(orientation='h', y=-0.18, x=0, font=dict(size=9)),
+            margin=dict(l=50, r=20, t=45, b=70))
         st.plotly_chart(fig_delta, use_container_width=True, config={'displayModeBar': False})
 
     with col_sa4:
@@ -827,10 +829,11 @@ with tab3:
             hovertemplate='Iterasi %{x:.0f}<br>Rate: %{y:.1f}%<extra></extra>'
         ))
         fig_acc.add_hline(y=50, line_dash="dash", line_color="rgba(255,255,255,0.3)", line_width=1)
-        fig_acc.update_layout(**SUBPLOT_THEME, height=280,
-            title='Acceptance Rate per Blok Iterasi',
+        fig_acc.update_layout(**SUBPLOT_THEME, height=320,
+            title=dict(text='Acceptance Rate per Blok Iterasi', font=dict(size=13), y=0.97),
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
-            yaxis=dict(title='Rate (%)', range=[0,105], gridcolor='#1E2235'))
+            yaxis=dict(title='Rate (%)', range=[0,105], gridcolor='#1E2235'),
+            margin=dict(l=50, r=20, t=45, b=70))
         st.plotly_chart(fig_acc, use_container_width=True, config={'displayModeBar': False})
 
     # Ringkasan SA
@@ -993,10 +996,11 @@ with tab4:
                 marker_color=PAL[i], opacity=0.85,
                 hovertemplate=f'<b>%{{x}}</b><br>{col}: %{{y:.2f}}<extra></extra>'
             ))
-        fig_bar_prof.update_layout(**SUBPLOT_THEME, height=280, barmode='group',
-            title='Rata-rata Fitur per Cluster',
+        fig_bar_prof.update_layout(**SUBPLOT_THEME, height=320, barmode='group',
+            title=dict(text='Rata-rata Fitur per Cluster', font=dict(size=13), y=0.97),
             xaxis=dict(gridcolor='#1E2235'), yaxis=dict(title='Nilai Rata-rata', gridcolor='#1E2235'),
-            legend=dict(orientation='h', y=-0.25, x=0, font=dict(size=10)))
+            legend=dict(orientation='h', y=-0.18, x=0, font=dict(size=10)),
+            margin=dict(l=50, r=20, t=45, b=70))
         st.plotly_chart(fig_bar_prof, use_container_width=True, config={'displayModeBar': False})
     
     with pc2:
