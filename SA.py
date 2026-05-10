@@ -744,14 +744,14 @@ with tab3:
                             line_width=1.5, annotation_text=f"SA Final ({RES['wcss_final']:.2f})",
                             annotation_font_color=PAL[1], annotation_font_size=9)
         fig_conv.update_layout(**SUBPLOT_THEME, height=340,
-            title=dict(text='Konvergensi WCSS Simulated Annealing', font=dict(size=13), y=0.97),
+            title=dict(text='Konvergensi WCSS Simulated Annealing', font=dict(size=13), x=0, xanchor='left'),
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
             yaxis=dict(title='WCSS', gridcolor='#1E2235'),
             legend=dict(
-                orientation='h', x=0, y=1.12, xanchor='left', yanchor='bottom',
-                font=dict(size=9), bgcolor='rgba(0,0,0,0)', borderwidth=0
+                orientation='h', x=1, y=0, xanchor='right', yanchor='bottom',
+                font=dict(size=9), bgcolor='rgba(15,17,23,0.75)', borderwidth=0
             ),
-            margin=dict(l=50, r=20, t=65, b=40))
+            margin=dict(l=50, r=20, t=40, b=40))
         st.plotly_chart(fig_conv, use_container_width=True, config={'displayModeBar': False})
 
     with col_sa2:
@@ -804,14 +804,14 @@ with tab3:
         ))
         fig_delta.add_vline(x=0, line_color="rgba(255,255,255,0.5)", line_width=1.5)
         fig_delta.update_layout(**SUBPLOT_THEME, height=340, barmode='overlay',
-            title=dict(text='Distribusi ΔE per Iterasi', font=dict(size=13), y=0.97),
+            title=dict(text='Distribusi ΔE per Iterasi', font=dict(size=13), x=0, xanchor='left'),
             xaxis=dict(title='ΔE (Perubahan WCSS)', gridcolor='#1E2235'),
             yaxis=dict(title='Frekuensi', gridcolor='#1E2235'),
             legend=dict(
-                orientation='h', x=0, y=1.12, xanchor='left', yanchor='bottom',
-                font=dict(size=9), bgcolor='rgba(0,0,0,0)', borderwidth=0
+                orientation='h', x=1, y=1, xanchor='right', yanchor='top',
+                font=dict(size=9), bgcolor='rgba(15,17,23,0.75)', borderwidth=0
             ),
-            margin=dict(l=50, r=20, t=65, b=40))
+            margin=dict(l=50, r=20, t=40, b=40))
         st.plotly_chart(fig_delta, use_container_width=True, config={'displayModeBar': False})
 
     with col_sa4:
@@ -1003,13 +1003,13 @@ with tab4:
                 hovertemplate=f'<b>%{{x}}</b><br>{col}: %{{y:.2f}}<extra></extra>'
             ))
         fig_bar_prof.update_layout(**SUBPLOT_THEME, height=340, barmode='group',
-            title=dict(text='Rata-rata Fitur per Cluster', font=dict(size=13), y=0.97),
+            title=dict(text='Rata-rata Fitur per Cluster', font=dict(size=13), x=0, xanchor='left'),
             xaxis=dict(gridcolor='#1E2235'), yaxis=dict(title='Nilai Rata-rata', gridcolor='#1E2235'),
             legend=dict(
-                orientation='h', x=0, y=1.12, xanchor='left', yanchor='bottom',
-                font=dict(size=10), bgcolor='rgba(0,0,0,0)', borderwidth=0
+                orientation='h', x=1, y=1, xanchor='right', yanchor='top',
+                font=dict(size=10), bgcolor='rgba(15,17,23,0.75)', borderwidth=0
             ),
-            margin=dict(l=50, r=20, t=65, b=40))
+            margin=dict(l=50, r=20, t=40, b=40))
         st.plotly_chart(fig_bar_prof, use_container_width=True, config={'displayModeBar': False})
     
     with pc2:
