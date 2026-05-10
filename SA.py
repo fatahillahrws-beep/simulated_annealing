@@ -917,7 +917,18 @@ with tab4:
         fig_2d.update_layout(**SUBPLOT_THEME, height=350,
             xaxis=dict(title=f'PC1 ({EV[0]*100:.1f}%)', gridcolor='#1E2235'),
             yaxis=dict(title=f'PC2 ({EV[1]*100:.1f}%)', gridcolor='#1E2235'),
-            legend=dict(font=dict(size=10), y=0, x=0))
+            legend=dict(
+                font=dict(size=9, color='#C5CBE0'),
+                bgcolor='rgba(13,15,26,0.85)',
+                bordercolor='#2A2D3E',
+                borderwidth=1,
+                orientation='v',
+                x=1.01, y=1,
+                xanchor='left', yanchor='top',
+                itemsizing='constant',
+                tracegroupgap=2,
+            ),
+            margin=dict(l=50, r=130, t=30, b=50))
         st.plotly_chart(fig_2d, use_container_width=True, config={'displayModeBar': False})
 
     with cl3:
