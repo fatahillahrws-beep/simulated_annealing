@@ -182,82 +182,12 @@ def apply_theme(fig, title=""):
     fig.update_layout(**PLOTLY_THEME, title=dict(text=title, font=dict(size=13, color='#C5CBE0'), x=0.01))
     return fig
 
-# ── DATA MALL CUSTOMERS (EMBEDDED) ───────────────────────────────────────────
+# ── UPLOAD DATA ───────────────────────────────────────────────────────────────
 @st.cache_data
-def load_data():
-    data = {
-        'CustomerID': list(range(1, 201)),
-        'Genre': ['Male','Male','Female','Female','Female','Female','Female','Female','Male','Female',
-                  'Male','Female','Female','Female','Male','Male','Female','Male','Male','Male',
-                  'Male','Male','Female','Female','Female','Female','Female','Male','Female','Female',
-                  'Male','Male','Female','Male','Male','Female','Female','Male','Female','Female',
-                  'Male','Female','Female','Female','Male','Male','Male','Female','Male','Male',
-                  'Female','Male','Female','Male','Male','Female','Female','Male','Male','Female',
-                  'Female','Male','Male','Female','Male','Female','Male','Female','Female','Female',
-                  'Male','Female','Male','Male','Male','Male','Female','Female','Female','Female',
-                  'Female','Female','Male','Female','Male','Female','Male','Male','Female','Female',
-                  'Male','Female','Male','Female','Male','Female','Male','Female','Male','Female',
-                  'Male','Female','Female','Female','Male','Female','Male','Male','Female','Female',
-                  'Female','Female','Male','Male','Female','Female','Male','Male','Female','Female',
-                  'Male','Male','Female','Female','Male','Female','Male','Female','Female','Male',
-                  'Male','Male','Female','Female','Male','Female','Female','Female','Male','Female',
-                  'Male','Male','Female','Male','Female','Male','Female','Female','Male','Male',
-                  'Female','Male','Female','Male','Female','Female','Female','Female','Male','Male',
-                  'Female','Female','Male','Male','Female','Female','Male','Female','Male','Male',
-                  'Male','Female','Male','Male','Female','Female','Male','Female','Female','Female',
-                  'Male','Female','Male','Female','Female','Female','Male','Male','Female','Female'],
-        'Age': [19,21,20,23,31,22,35,23,64,30,67,35,58,24,37,22,35,20,52,35,
-                35,25,46,31,54,29,45,35,40,23,60,21,53,18,49,21,42,30,36,20,
-                65,24,48,31,49,24,50,27,29,31,49,33,31,59,50,47,51,69,27,53,
-                70,19,67,54,63,18,43,68,19,32,70,47,60,60,59,24,26,45,40,23,
-                49,57,38,67,46,21,48,55,22,34,50,68,18,48,40,32,24,47,27,48,
-                20,23,49,67,26,49,21,66,54,68,66,65,19,38,19,18,19,63,49,51,
-                50,27,29,31,49,33,31,59,50,47,51,69,27,53,70,19,67,54,63,18,
-                43,68,19,32,70,47,60,60,59,24,26,45,40,23,49,57,38,67,46,21,
-                48,55,22,34,50,68,18,48,40,32,24,47,27,48,20,23,49,67,26,49,
-                21,66,54,68,66,65,19,38,19,18,19,63,49,51,50,27,29,31,49,33],
-        'Annual Income (k$)': [15,15,16,16,17,17,18,18,19,19,
-                                19,20,20,21,21,23,23,24,25,25,
-                                28,28,29,29,30,30,33,33,33,34,
-                                38,38,39,39,39,40,40,40,42,42,
-                                43,43,43,44,44,46,46,46,46,47,
-                                47,47,48,48,48,48,48,48,50,54,
-                                54,54,54,54,54,54,54,54,54,55,
-                                55,55,55,55,55,55,56,56,58,58,
-                                59,59,60,60,60,60,60,61,61,62,
-                                62,62,62,63,63,63,63,64,64,65,
-                                65,65,65,65,67,67,67,69,70,70,
-                                71,71,71,71,71,72,72,73,73,73,
-                                74,75,76,77,77,77,77,77,78,78,
-                                78,78,78,78,79,81,85,86,87,87,
-                                87,87,88,88,88,93,93,97,98,99,
-                                101,101,103,103,103,103,104,104,105,105,
-                                107,107,108,108,108,109,112,112,113,115,
-                                115,120,120,120,122,122,122,123,126,126,
-                                137,137,137,137,138,138,139,139,140,140,
-                                142,142,143,143,143,144,144,145,145,146],
-        'Spending Score (1-100)': [39,81,6,77,40,76,6,94,3,72,
-                                    14,99,15,77,13,79,35,66,29,98,
-                                    35,73,5,73,72,5,14,82,32,61,
-                                    31,87,4,73,4,92,14,81,17,73,
-                                    35,26,14,90,35,55,14,37,17,77,
-                                    40,76,87,14,74,27,90,13,14,34,
-                                    72,14,81,5,27,14,27,15,77,14,
-                                    78,14,77,49,13,85,28,79,14,10,
-                                    80,24,83,3,9,72,11,75,24,66,
-                                    77,35,11,63,35,14,90,3,51,14,
-                                    75,56,13,92,50,14,80,14,77,49,
-                                    13,85,28,79,14,10,80,24,83,3,
-                                    9,72,11,75,24,66,77,35,11,63,
-                                    35,14,90,3,51,14,75,56,13,92,
-                                    50,14,80,14,77,13,80,35,72,27,
-                                    90,13,36,81,14,48,18,83,3,75,
-                                    14,73,41,73,14,49,10,75,28,39,
-                                    76,14,49,13,72,27,90,13,36,81,
-                                    14,48,18,83,3,75,14,73,41,73,
-                                    14,49,10,75,28,39,76,14,49,13]
-    }
-    return pd.DataFrame(data)
+def load_data(file_bytes, sep=';'):
+    import io
+    df = pd.read_csv(io.BytesIO(file_bytes), sep=sep)
+    return df
 
 @st.cache_data
 def preprocess_data(df):
@@ -363,7 +293,58 @@ def run_sa_cached(X, K, T0=100.0, alpha=0.95, T_min=1e-3, max_iter=600, sigma=0.
     }
 
 # ── LOAD & PROSES DATA ────────────────────────────────────────────────────────
-df_raw = load_data()
+# Upload widget di luar sidebar agar muncul di atas saat belum ada file
+if 'uploaded_df' not in st.session_state:
+    st.session_state.uploaded_df = None
+
+with st.sidebar:
+    st.markdown("**Upload Dataset**")
+    uploaded_file = st.file_uploader(
+        "Upload file CSV", type=["csv"],
+        help="Format: CustomerID, Genre, Age, Annual Income (k$), Spending Score (1-100)"
+    )
+    sep_choice = st.radio("Separator", [";", ","], horizontal=True)
+
+if uploaded_file is not None:
+    try:
+        df_raw = load_data(uploaded_file.read(), sep=sep_choice)
+        st.session_state.uploaded_df = df_raw
+    except Exception as e:
+        st.error(f"Gagal membaca file: {e}")
+        st.stop()
+elif st.session_state.uploaded_df is not None:
+    df_raw = st.session_state.uploaded_df
+else:
+    st.markdown("""
+    <div style='background:#131825; border:1px solid #2a2d3e; border-radius:12px;
+                padding:3rem; text-align:center; margin-top:2rem;'>
+        <div style='font-size:2.5rem; margin-bottom:1rem;'>📂</div>
+        <div style='font-size:1.1rem; font-weight:600; color:#C5CBE0; margin-bottom:0.5rem;'>
+            Upload Dataset untuk Memulai
+        </div>
+        <div style='font-size:0.85rem; color:#5C6A8A; margin-bottom:1.5rem;'>
+            Upload file CSV Mall Customers melalui sidebar kiri.<br>
+            Pastikan kolom: <b style='color:#7986CB;'>Genre, Age, Annual Income (k$), Spending Score (1-100)</b>
+        </div>
+        <div style='background:#0A0C14; border-radius:8px; padding:1rem; display:inline-block;
+                    font-size:0.8rem; color:#4A5568; text-align:left;'>
+            CustomerID;Genre;Age;Annual Income (k$);Spending Score (1-100)<br>
+            1;Male;19;15;39<br>
+            2;Male;21;15;81<br>
+            3;Female;20;16;6<br>
+            ...
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.stop()
+
+# Validasi kolom
+required_cols = {'Genre', 'Age', 'Annual Income (k$)', 'Spending Score (1-100)'}
+missing_cols = required_cols - set(df_raw.columns)
+if missing_cols:
+    st.error(f"Kolom tidak ditemukan: {missing_cols}. Pastikan nama kolom sudah benar.")
+    st.stop()
+
 df, X_scaled, scaler, FEATURES = preprocess_data(df_raw)
 pca_full, pca3, pca2, X3, X2, EV, EV_CUM = run_pca(X_scaled)
 df_k, K_OPT = find_optimal_k(X3)
