@@ -555,8 +555,8 @@ with tab1:
                 height=240, margin=dict(l=45,r=15,t=35,b=35),
                 title=dict(text=f'{cx.split("(")[0].strip()} vs {cy.split("(")[0].strip()}',
                            font=dict(size=11, color='#C5CBE0'), x=0.01),
-                xaxis=dict(title=cx.split('(')[0].strip(), gridcolor='#1E2235', titlefont=dict(size=10)),
-                yaxis=dict(title=cy.split('(')[0].strip(), gridcolor='#1E2235', titlefont=dict(size=10)))
+                xaxis=dict(title=cx.split('(')[0].strip(), gridcolor='#1E2235', title_font=dict(size=10)),
+                yaxis=dict(title=cy.split('(')[0].strip(), gridcolor='#1E2235', title_font=dict(size=10)))
             st.plotly_chart(fig_sc, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown("""<div class='section-header'>
