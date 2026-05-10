@@ -618,7 +618,7 @@ with tab2:
         fig_scree.add_hline(y=80, line_dash="dash", line_color="rgba(255,255,255,0.3)",
                              line_width=1.5, annotation_text="80% threshold",
                              annotation_font_color="#C5CBE0", annotation_font_size=10)
-        fig_scree.update_layout(**PLOTLY_THEME, height=320,
+        fig_scree.update_layout(**SUBPLOT_THEME, height=320,
             title='Scree Plot — Explained Variance per Komponen',
             xaxis=dict(gridcolor='#1E2235', linecolor='#2A2D3E'),
             yaxis=dict(title='Variance (%)', gridcolor='#1E2235', linecolor='#2A2D3E'),
@@ -664,7 +664,7 @@ with tab2:
                 text=f"<b>{feat}</b>", font=dict(color=PAL[i], size=11),
                 xanchor='center', showarrow=True
             )
-        fig_biplot.update_layout(**PLOTLY_THEME, height=340,
+        fig_biplot.update_layout(**SUBPLOT_THEME, height=340,
             title=f'Biplot PC1 ({EV[0]*100:.1f}%) vs PC2 ({EV[1]*100:.1f}%)',
             xaxis=dict(title=f'PC1 ({EV[0]*100:.1f}%)', gridcolor='#1E2235', zeroline=True, zerolinecolor='#2A2D3E'),
             yaxis=dict(title=f'PC2 ({EV[1]*100:.1f}%)', gridcolor='#1E2235', zeroline=True, zerolinecolor='#2A2D3E'),
@@ -679,7 +679,7 @@ with tab2:
                 y=pca3.components_[:, i], marker_color=PAL[i], opacity=0.85,
                 hovertemplate=f'<b>{feat}</b><br>%{{x}}: %{{y:.4f}}<extra></extra>'
             ))
-        fig_bar_load.update_layout(**PLOTLY_THEME, height=340, barmode='group',
+        fig_bar_load.update_layout(**SUBPLOT_THEME, height=340, barmode='group',
             title='Nilai Loading per Komponen Utama',
             xaxis=dict(gridcolor='#1E2235', linecolor='#2A2D3E'),
             yaxis=dict(title='Loading Value', gridcolor='#1E2235', linecolor='#2A2D3E',
@@ -732,7 +732,7 @@ with tab3:
         fig_conv.add_hline(y=RES['wcss_final'], line_dash="dot", line_color=PAL[1],
                             line_width=1.5, annotation_text=f"SA Final ({RES['wcss_final']:.2f})",
                             annotation_font_color=PAL[1], annotation_font_size=9)
-        fig_conv.update_layout(**PLOTLY_THEME, height=320,
+        fig_conv.update_layout(**SUBPLOT_THEME, height=320,
             title='Konvergensi WCSS Simulated Annealing',
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
             yaxis=dict(title='WCSS', gridcolor='#1E2235'),
@@ -759,7 +759,7 @@ with tab3:
                                           (int(n*0.2), int(n*0.65), 'Transisi', '#FFA726'),
                                           (int(n*0.65), n, 'Eksploitasi', PAL[1])]:
             fig_cool.add_vrect(x0=start, x1=end, fillcolor=color, opacity=0.05, line_width=0)
-        fig_cool.update_layout(**PLOTLY_THEME, height=320,
+        fig_cool.update_layout(**SUBPLOT_THEME, height=320,
             title=f'Cooling Schedule (α={alpha})',
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
             yaxis=dict(title='Suhu T (log scale)', type='log', gridcolor='#1E2235'),
@@ -788,7 +788,7 @@ with tab3:
             hovertemplate='ΔE: %{x:.3f}<br>Count: %{y}<extra></extra>'
         ))
         fig_delta.add_vline(x=0, line_color="rgba(255,255,255,0.5)", line_width=1.5)
-        fig_delta.update_layout(**PLOTLY_THEME, height=280, barmode='overlay',
+        fig_delta.update_layout(**SUBPLOT_THEME, height=280, barmode='overlay',
             title='Distribusi ΔE per Iterasi',
             xaxis=dict(title='ΔE (Perubahan WCSS)', gridcolor='#1E2235'),
             yaxis=dict(title='Frekuensi', gridcolor='#1E2235'),
@@ -816,7 +816,7 @@ with tab3:
             hovertemplate='Iterasi %{x:.0f}<br>Rate: %{y:.1f}%<extra></extra>'
         ))
         fig_acc.add_hline(y=50, line_dash="dash", line_color="rgba(255,255,255,0.3)", line_width=1)
-        fig_acc.update_layout(**PLOTLY_THEME, height=280,
+        fig_acc.update_layout(**SUBPLOT_THEME, height=280,
             title='Acceptance Rate per Blok Iterasi',
             xaxis=dict(title='Iterasi', gridcolor='#1E2235'),
             yaxis=dict(title='Rate (%)', range=[0,105], gridcolor='#1E2235'))
@@ -914,7 +914,7 @@ with tab4:
                                           line=dict(width=1.5, color='black')),
             hovertemplate='<b>Centroid</b><br>PC1: %{x:.3f}<br>PC2: %{y:.3f}<extra></extra>'
         ))
-        fig_2d.update_layout(**PLOTLY_THEME, height=350,
+        fig_2d.update_layout(**SUBPLOT_THEME, height=350,
             xaxis=dict(title=f'PC1 ({EV[0]*100:.1f}%)', gridcolor='#1E2235'),
             yaxis=dict(title=f'PC2 ({EV[1]*100:.1f}%)', gridcolor='#1E2235'),
             legend=dict(font=dict(size=10), y=0, x=0))
@@ -971,7 +971,7 @@ with tab4:
                 marker_color=PAL[i], opacity=0.85,
                 hovertemplate=f'<b>%{{x}}</b><br>{col}: %{{y:.2f}}<extra></extra>'
             ))
-        fig_bar_prof.update_layout(**PLOTLY_THEME, height=280, barmode='group',
+        fig_bar_prof.update_layout(**SUBPLOT_THEME, height=280, barmode='group',
             title='Rata-rata Fitur per Cluster',
             xaxis=dict(gridcolor='#1E2235'), yaxis=dict(title='Nilai Rata-rata', gridcolor='#1E2235'),
             legend=dict(orientation='h', y=-0.25, x=0, font=dict(size=10)))
@@ -1112,7 +1112,7 @@ with tab5:
                 hovertemplate='<b>%{x}</b><br>' + metric + ': %{y:.4f}<extra></extra>'
             ))
             arrow = '↓' if lower_better else '↑'
-            fig_comp.update_layout(**PLOTLY_THEME, height=280,
+            fig_comp.update_layout(**SUBPLOT_THEME, height=280,
                 title=f'{metric} ({arrow} lebih baik)',
                 xaxis=dict(gridcolor='#1E2235'),
                 yaxis=dict(title=metric, gridcolor='#1E2235'),
