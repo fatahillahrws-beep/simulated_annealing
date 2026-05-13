@@ -393,7 +393,7 @@ with st.sidebar:
     alpha = st.slider("Cooling Rate (α)", 0.80, 0.99, 0.95, 0.01)
     sigma = st.slider("Perturbasi (σ)", 0.1, 1.5, 0.5, 0.1)
     max_iter = st.slider("Max Iterasi", 100, 1000, 600, 50)
-    K_input = st.slider("Jumlah Cluster (K)", 2, 10, K_OPT, 1)
+    K_input = st.slider("Jumlah Cluster (K)", 2, 8, K_OPT, 1)
     
     st.markdown("---")
     run_btn = st.button("▶  Jalankan SA", type="primary", use_container_width=True)
